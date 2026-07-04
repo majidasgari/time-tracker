@@ -103,6 +103,34 @@ def list_activities(
         return response  # type: ignore[return-value]
 
 
+@app.get("/api/activities/timeline")
+def timeline_activities(
+    from_ts: str | None = None,
+    to_ts: str | None = None,
+) -> list[dict[str, Any]]:
+    engine = app.state.engine
+    with Session(engine) as session:
+        stmt = select(Activity).where(Activity.end_ts.is_not(None))  # type: ignore[union-attr]
+        if from_ts:
+            stmt = stmt.where(Activity.start_ts >= from_ts)  # type: ignore[operator]
+        if to_ts:
+            stmt = stmt.where(Activity.start_ts <= to_ts)  # type: ignore[operator]
+        stmt = stmt.order_by(Activity.start_ts)  # type: ignore[attr-defined]
+        acts = session.exec(stmt).all()
+        return [
+            {
+                "id": a.id,
+                "start_ts": a.start_ts,
+                "end_ts": a.end_ts,
+                "duration_sec": a.duration_sec,
+                "process": a.process,
+                "title": a.title,
+                "category": a.category,
+            }
+            for a in acts
+        ]
+
+
 @app.get("/api/stats/breakdown")
 def stats_breakdown(
     from_ts: str | None = None,

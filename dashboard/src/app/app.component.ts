@@ -26,6 +26,13 @@ import { CommonModule } from '@angular/common';
           </svg>
           Charts
         </a>
+        <a routerLink="/timeline" routerLinkActive="bg-gray-800 text-white" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="19.5" x2="20" y2="19.5"/>
+            <polyline points="4 13.5 8 9.5 12 13.5 16 5.5 20 9.5"/>
+          </svg>
+          Timeline
+        </a>
         <a routerLink="/categories" routerLinkActive="bg-gray-800 text-white" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 transition">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>

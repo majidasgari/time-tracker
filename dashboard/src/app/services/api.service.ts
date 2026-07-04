@@ -50,6 +50,16 @@ export interface RuleIn {
   recompute_from: string | null;
 }
 
+export interface TimelineActivity {
+  id: number;
+  start_ts: string;
+  end_ts: string | null;
+  duration_sec: number | null;
+  process: string | null;
+  title: string | null;
+  category: string | null;
+}
+
 export interface CategoryOut {
   id: number;
   name: string;
@@ -117,6 +127,12 @@ export class ApiService {
     if (filterProcess)   params['filter_process']  = filterProcess;
     if (filterTitle)     params['filter_title']    = filterTitle;
     return this.http.get<AccumulatedItem[]>(`${this.base}/stats/accumulated`, { params });
+  }
+
+  getTimeline(fromTs: string, toTs: string) {
+    return this.http.get<TimelineActivity[]>(`${this.base}/activities/timeline`, {
+      params: { from_ts: fromTs, to_ts: toTs },
+    });
   }
 
   // ── Categories ──
