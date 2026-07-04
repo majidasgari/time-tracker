@@ -40,14 +40,40 @@ app = FastAPI(title="Time Tracker", lifespan=lifespan)
 
 
 @app.get("/api/activities")
-def list_activities(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+def list_activities(
+    limit: int = 50,
+    offset: int = 0,
+    category: str | None = None,
+    process: str | None = None,
+    title: str | None = None,
+    from_ts: str | None = None,
+    to_ts: str | None = None,
+) -> list[dict[str, Any]]:
+    from fastapi.responses import JSONResponse
     engine = app.state.engine
     with Session(engine) as session:
+        stmt = select(Activity)
+        if category:
+            stmt = stmt.where(Activity.category.ilike(f"%{category}%"))  # type: ignore[union-attr]
+        if process:
+            stmt = stmt.where(Activity.process.ilike(f"%{process}%"))  # type: ignore[union-attr]
+        if title:
+            stmt = stmt.where(Activity.title.ilike(f"%{title}%"))  # type: ignore[union-attr]
+        if from_ts:
+            stmt = stmt.where(Activity.start_ts >= from_ts)  # type: ignore[operator]
+        if to_ts:
+            stmt = stmt.where(Activity.start_ts <= to_ts)  # type: ignore[operator]
+
+        # Count before pagination
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = session.exec(count_stmt).one() or 0
+
         acts = session.exec(
-            select(Activity).order_by(Activity.start_ts.desc())  # type: ignore[attr-defined]
+            stmt.order_by(Activity.start_ts.desc())  # type: ignore[attr-defined]
             .offset(offset).limit(limit)
         ).all()
-        return [
+
+        data = [
             {
                 "id": a.id,
                 "start_ts": a.start_ts,
@@ -59,6 +85,15 @@ def list_activities(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
             }
             for a in acts
         ]
+        from starlette.responses import Response
+        import json
+        response = Response(
+            content=json.dumps(data),
+            media_type="application/json",
+        )
+        response.headers["X-Total-Count"] = str(total)
+        response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+        return response  # type: ignore[return-value]
 
 
 @app.get("/api/stats/breakdown")
