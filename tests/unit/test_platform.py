@@ -115,7 +115,7 @@ def test_wayland_backend_import() -> None:
 
 def test_wayland_backend_get_window(mock_psutil_process) -> None:
     with patch("timetracker.platform.linux_wayland._kwin_active_window_info") as mock_kwin:
-        mock_kwin.return_value = {"windowTitle": "test window", "pid": "1234"}
+        mock_kwin.return_value = {"caption": "test window", "resourceClass": "testproc"}
         mock_psutil_process.return_value.name.return_value = "testproc"
 
         from timetracker.platform.linux_wayland import WaylandBackend

@@ -61,12 +61,13 @@ class Sampler(threading.Thread):
         session.add(act)
         session.commit()
         session.refresh(act)
+        logger.info("activity opened #%d  process=%s  title=%s  category=%s",
+                     act.id, process, title, category)
         return act
 
     def _close_activity(self, session: Session, activity: Activity | None) -> None:
         if activity is None or activity.end_ts is not None:
             return
-        # re-fetch in current session if detached
         if activity not in session:
             activity = session.get(Activity, activity.id)
             if activity is None or activity.end_ts is not None:
@@ -81,22 +82,30 @@ class Sampler(threading.Thread):
             except ValueError:
                 activity.duration_sec = 0
         session.commit()
+        logger.info("activity closed #%d  process=%s  duration=%ds",
+                     activity.id, activity.process, activity.duration_sec or 0)
 
     def run(self) -> None:
+        logger.info("sampler started (poll_interval=%ds)", self._poll_interval)
         while not self._stop.is_set():
             try:
                 with Session(self._engine) as session:
                     self._rule_version = self._get_rule_version(session)
                     info = self._backend.get_active_window()
                     if _changed(info, self._current):
+                        logger.debug("window changed: %s → %s",
+                                     self._current.process if self._current else None,
+                                     info.process if info else None)
                         self._close_activity(session, self._current)
                         if info and info.process:
                             self._current = self._open_activity(session, info)
                         else:
                             self._current = self._open_activity(session, None)
             except Exception:
-                logger.exception("Sampler error")
+                logger.exception("sampler error")
             self._stop.wait(self._poll_interval)
 
+        logger.info("sampler stopping")
         with Session(self._engine) as session:
             self._close_activity(session, self._current)
+        logger.info("sampler stopped")
