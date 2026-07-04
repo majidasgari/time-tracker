@@ -37,6 +37,35 @@ export interface AccumulatedItem {
   total_sec: number;
 }
 
+export interface RuleOut {
+  id: number;
+  category_id: number;
+  process_regex: string | null;
+  title_regex: string | null;
+}
+
+export interface RuleIn {
+  process_regex: string | null;
+  title_regex: string | null;
+  recompute_from: string | null;
+}
+
+export interface CategoryOut {
+  id: number;
+  name: string;
+  color: string;
+  priority: number;
+  enabled: boolean;
+  rules: RuleOut[];
+}
+
+export interface CategoryIn {
+  name: string;
+  color: string;
+  priority: number;
+  enabled: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private base = '/api';
@@ -62,8 +91,14 @@ export class ApiService {
     return this.http.get<Status>(`${this.base}/status`);
   }
 
-  getBreakdown() {
-    return this.http.get<BreakdownItem[]>(`${this.base}/stats/breakdown`);
+  getBreakdown(fromTs?: string, toTs?: string, categoryFilter?: string, processFilter?: string, titleFilter?: string) {
+    const params: Record<string, string> = {};
+    if (fromTs)          params['from_ts']  = fromTs;
+    if (toTs)            params['to_ts']    = toTs;
+    if (categoryFilter)  params['category'] = categoryFilter;
+    if (processFilter)   params['process']  = processFilter;
+    if (titleFilter)     params['title']    = titleFilter;
+    return this.http.get<BreakdownItem[]>(`${this.base}/stats/breakdown`, { params });
   }
 
   getAccumulated(
@@ -82,5 +117,37 @@ export class ApiService {
     if (filterProcess)   params['filter_process']  = filterProcess;
     if (filterTitle)     params['filter_title']    = filterTitle;
     return this.http.get<AccumulatedItem[]>(`${this.base}/stats/accumulated`, { params });
+  }
+
+  // ── Categories ──
+
+  getCategories() {
+    return this.http.get<CategoryOut[]>(`${this.base}/categories`);
+  }
+
+  createCategory(data: CategoryIn) {
+    return this.http.post<CategoryOut>(`${this.base}/categories`, data);
+  }
+
+  updateCategory(id: number, data: CategoryIn) {
+    return this.http.put<CategoryOut>(`${this.base}/categories/${id}`, data);
+  }
+
+  deleteCategory(id: number) {
+    return this.http.delete(`${this.base}/categories/${id}`);
+  }
+
+  // ── Rules ──
+
+  createRule(categoryId: number, data: RuleIn) {
+    return this.http.post<RuleOut>(`${this.base}/categories/${categoryId}/rules`, data);
+  }
+
+  updateRule(ruleId: number, data: RuleIn) {
+    return this.http.put<RuleOut>(`${this.base}/categories/rules/${ruleId}`, data);
+  }
+
+  deleteRule(ruleId: number) {
+    return this.http.delete(`${this.base}/categories/rules/${ruleId}`);
   }
 }

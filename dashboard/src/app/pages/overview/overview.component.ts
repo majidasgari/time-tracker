@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService, ActivityFilter, BreakdownItem, Status } from '../../services/api.service';
+import { ApiService, ActivityFilter, BreakdownItem, Status, CategoryOut } from '../../services/api.service';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
 
 const PAGE_SIZE = 25;
@@ -37,7 +37,7 @@ const PAGE_SIZE = 25;
           <div *ngFor="let item of breakdown" class="flex items-center gap-3">
             <span class="w-28 text-sm truncate">{{ item.category }}</span>
             <div class="flex-1 bg-gray-700 rounded-full h-4">
-              <div class="bg-blue-500 h-4 rounded-full transition-all" [style.width.%]="item.total_sec / maxSec * 100"></div>
+              <div class="bg-blue-500 h-4 rounded-full transition-all" [style.background]="getCategoryColor(item.category)" [style.width.%]="item.total_sec / maxSec * 100"></div>
             </div>
             <span class="text-sm w-16 text-right">{{ item.total_sec / 60 | number:'1.0-0' }}m</span>
           </div>
@@ -48,7 +48,11 @@ const PAGE_SIZE = 25;
       <div class="bg-gray-800 rounded-xl p-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold">Activities</h2>
-          <span class="text-sm text-gray-400">{{ totalCount }} result{{ totalCount !== 1 ? 's' : '' }}</span>
+          <div class="flex items-center gap-4 text-sm">
+            <span class="text-gray-400">{{ totalCount }} result{{ totalCount !== 1 ? 's' : '' }}</span>
+            <span class="text-gray-300 font-mono">{{ totalDurationClock }}</span>
+            <span class="text-gray-500 font-mono">({{ totalDurationDecimal }})</span>
+          </div>
         </div>
 
         <!-- Filters -->
@@ -110,12 +114,7 @@ const PAGE_SIZE = 25;
                 <td class="py-2 px-2 text-center whitespace-nowrap text-gray-300">{{ a.start_ts?.slice(0, 10) }} {{ a.start_ts?.slice(11, 19) }}</td>
                 <td class="py-2 px-2 text-center">{{ a.process || '—' }}</td>
                 <td class="py-2 px-2 text-center">
-                  <span class="px-2 py-0.5 rounded text-xs"
-                    [class.bg-red-500]="a.category === 'کدنویسی'"
-                    [class.bg-blue-500]="a.category === 'مرورگر'"
-                    [class.bg-orange-500]="a.category === 'ترمینال'"
-                    [class.bg-gray-500]="a.category === 'Idle'"
-                    [class.bg-purple-600]="a.category && !['کدنویسی','مرورگر','ترمینال','Idle'].includes(a.category)">
+                  <span class="px-2 py-0.5 rounded text-xs" [style.background]="getCategoryColor(a.category)">
                     {{ a.category || '—' }}
                   </span>
                 </td>
@@ -161,6 +160,7 @@ export class OverviewComponent implements OnInit, OnDestroy {
   breakdown: BreakdownItem[] = [];
   status: Status | null = null;
   maxSec = 1;
+  categoryColors: Record<string, string> = {};
 
   // Filters
   filterProcess  = '';
@@ -173,6 +173,7 @@ export class OverviewComponent implements OnInit, OnDestroy {
   page       = 0;
   pageSize   = PAGE_SIZE;
   totalCount = 0;
+  totalDurationSec = 0;
 
   get totalPages() { return Math.max(1, Math.ceil(this.totalCount / this.pageSize)); }
   get pageStart()  { return this.totalCount === 0 ? 0 : this.page * this.pageSize + 1; }
@@ -188,8 +189,10 @@ export class OverviewComponent implements OnInit, OnDestroy {
     this.filter$.pipe(debounceTime(300), takeUntil(this.destroy)).subscribe(() => {
       this.page = 0;
       this.loadActivities();
+      this.loadSummary();
     });
 
+    this.loadCategories();
     this.loadActivities();
     this.loadSummary();
     setInterval(() => {
@@ -228,15 +231,50 @@ export class OverviewComponent implements OnInit, OnDestroy {
     this.api.getActivities(filter).subscribe(resp => {
       this.activities  = resp.body ?? [];
       this.totalCount  = Number(resp.headers.get('X-Total-Count') ?? 0);
+      this.totalDurationSec = Number(resp.headers.get('X-Total-Duration-Sec') ?? 0);
     });
   }
 
   loadSummary() {
-    this.api.getBreakdown().subscribe(b => {
+    const fromIso = this.filterFrom ? new Date(this.filterFrom).toISOString() : undefined;
+    const toIso   = this.filterTo   ? new Date(this.filterTo).toISOString()   : undefined;
+    this.api.getBreakdown(
+      fromIso, toIso,
+      this.filterCategory || undefined,
+      this.filterProcess  || undefined,
+      this.filterTitle    || undefined,
+    ).subscribe(b => {
       this.breakdown = b;
       this.maxSec = Math.max(1, ...b.map(x => x.total_sec));
     });
     this.api.getStatus().subscribe(s => this.status = s);
+  }
+
+  loadCategories() {
+    this.api.getCategories().subscribe(cats => {
+      this.categoryColors = {};
+      for (const c of cats) {
+        this.categoryColors[c.name] = c.color;
+      }
+    });
+  }
+
+  getCategoryColor(name: string | null): string {
+    return name ? (this.categoryColors[name] || '#555555') : '#555555';
+  }
+
+  get totalDurationDecimal(): string {
+    const h = this.totalDurationSec / 3600;
+    return h >= 1 ? h.toFixed(1) + 'h' : (this.totalDurationSec / 60).toFixed(1) + 'm';
+  }
+
+  get totalDurationClock(): string {
+    const sec = this.totalDurationSec;
+    if (sec < 60) return `${sec}s`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return `${h}h ${m}m`;
   }
 
   formatDuration(a: any): string {

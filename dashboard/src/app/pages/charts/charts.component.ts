@@ -8,7 +8,7 @@ import {
   TitleComponent, TooltipComponent, LegendComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { ApiService, AccumulatedItem } from '../../services/api.service';
+import { ApiService, AccumulatedItem, CategoryOut } from '../../services/api.service';
 import { Subject, forkJoin, takeUntil, debounceTime } from 'rxjs';
 
 echarts.use([PieChart, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -50,12 +50,15 @@ function presetRange(p: Preset): [string, string] {
   return ['', ''];
 }
 
-function makePieOption(title: string, data: AccumulatedItem[]) {
-  const items = data.map((d, i) => ({
-    name: d.label,
-    value: d.total_sec,
-    itemStyle: { color: PALETTE[i % PALETTE.length] },
-  }));
+function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record<string, string>) {
+  const items = data.map((d, i) => {
+    const color = colorMap?.[d.label] || PALETTE[i % PALETTE.length];
+    return {
+      name: d.label,
+      value: d.total_sec,
+      itemStyle: { color },
+    };
+  });
   return {
     backgroundColor: 'transparent',
     tooltip: {
@@ -151,7 +154,7 @@ function makePieOption(title: string, data: AccumulatedItem[]) {
           <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
             <div *ngFor="let d of catData; let i = index"
               class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full flex-shrink-0" [style.background]="color(i)"></span>
+              <span class="w-3 h-3 rounded-full flex-shrink-0" [style.background]="categoryColor(d.label)"></span>
               <span class="flex-1 truncate text-gray-300" [title]="d.label">{{ d.label }}</span>
               <span class="font-mono text-gray-400">{{ fmt(d.total_sec) }}</span>
               <span class="text-gray-500 w-10 text-right">{{ pct(d.total_sec, catData) }}%</span>
@@ -228,6 +231,8 @@ export class ChartsComponent implements OnInit, OnDestroy {
   procOption:  any = {};
   titleOption: any = {};
 
+  categoryColors: Record<string, string> = {};
+
   // Text filters
   filterCategory = '';
   filterProcess  = '';
@@ -245,10 +250,20 @@ export class ChartsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.filter$.pipe(debounceTime(300), takeUntil(this.destroy)).subscribe(() => this.load());
+    this.loadCategories();
     this.selectPreset('today');
   }
 
   ngOnDestroy() { this.destroy.next(); }
+
+  loadCategories() {
+    this.api.getCategories().subscribe(cats => {
+      this.categoryColors = {};
+      for (const c of cats) {
+        this.categoryColors[c.name] = c.color;
+      }
+    });
+  }
 
   onTextFilter() { this.filter$.next(); }
 
@@ -285,7 +300,7 @@ export class ChartsComponent implements OnInit, OnDestroy {
         this.catData   = cat;
         this.procData  = proc;
         this.titleData = title;
-        this.catOption   = makePieOption('Category', cat);
+        this.catOption   = makePieOption('Category', cat, this.categoryColors);
         this.procOption  = makePieOption('Process',  proc);
         this.titleOption = makePieOption('Title',    title);
         this.loading = false;
@@ -295,6 +310,10 @@ export class ChartsComponent implements OnInit, OnDestroy {
   }
 
   color(i: number) { return PALETTE[i % PALETTE.length]; }
+
+  categoryColor(label: string): string {
+    return this.categoryColors[label] || PALETTE[0];
+  }
 
   pct(sec: number, arr: AccumulatedItem[]) {
     const total = arr.reduce((a, b) => a + b.total_sec, 0);

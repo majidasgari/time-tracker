@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from timetracker.api.routes.categories import router as categories_router
 from timetracker.config import ensure_config
 from timetracker.db.migrations import run_migrations, seed_rules_from_config
 from timetracker.db.models import Activity
@@ -37,6 +38,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Time Tracker", lifespan=lifespan)
+app.include_router(categories_router, prefix="/api/categories")
 
 
 @app.get("/api/activities")
@@ -68,6 +70,10 @@ def list_activities(
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = session.exec(count_stmt).one() or 0
 
+        # Total duration across all matching rows
+        sum_stmt = select(func.sum(Activity.duration_sec)).select_from(stmt.subquery())
+        total_duration = session.exec(sum_stmt).one() or 0
+
         acts = session.exec(
             stmt.order_by(Activity.start_ts.desc())  # type: ignore[attr-defined]
             .offset(offset).limit(limit)
@@ -92,19 +98,37 @@ def list_activities(
             media_type="application/json",
         )
         response.headers["X-Total-Count"] = str(total)
-        response.headers["Access-Control-Expose-Headers"] = "X-Total-Count"
+        response.headers["X-Total-Duration-Sec"] = str(int(total_duration))
+        response.headers["Access-Control-Expose-Headers"] = "X-Total-Count, X-Total-Duration-Sec"
         return response  # type: ignore[return-value]
 
 
 @app.get("/api/stats/breakdown")
-def stats_breakdown() -> list[dict[str, Any]]:
+def stats_breakdown(
+    from_ts: str | None = None,
+    to_ts: str | None = None,
+    category: str | None = None,
+    process: str | None = None,
+    title: str | None = None,
+) -> list[dict[str, Any]]:
     engine = app.state.engine
     with Session(engine) as session:
-        rows = session.exec(
+        stmt = (
             select(Activity.category, func.sum(Activity.duration_sec))
             .where(Activity.end_ts.is_not(None))  # type: ignore[union-attr]
-            .group_by(Activity.category)
-        ).all()
+        )
+        if from_ts:
+            stmt = stmt.where(Activity.start_ts >= from_ts)  # type: ignore[operator]
+        if to_ts:
+            stmt = stmt.where(Activity.start_ts <= to_ts)  # type: ignore[operator]
+        if category:
+            stmt = stmt.where(Activity.category.ilike(f"%{category}%"))  # type: ignore[union-attr]
+        if process:
+            stmt = stmt.where(Activity.process.ilike(f"%{process}%"))  # type: ignore[union-attr]
+        if title:
+            stmt = stmt.where(Activity.title.ilike(f"%{title}%"))  # type: ignore[union-attr]
+        stmt = stmt.group_by(Activity.category)
+        rows = session.exec(stmt).all()
         return [{"category": r[0], "total_sec": r[1] or 0} for r in rows]
 
 
