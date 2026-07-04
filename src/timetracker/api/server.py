@@ -108,6 +108,52 @@ def stats_breakdown() -> list[dict[str, Any]]:
         return [{"category": r[0], "total_sec": r[1] or 0} for r in rows]
 
 
+@app.get("/api/stats/accumulated")
+def stats_accumulated(
+    group_by: str = "category",   # "category" | "process" | "title"
+    from_ts: str | None = None,
+    to_ts: str | None = None,
+    top_n: int = 20,
+    filter_category: str | None = None,
+    filter_process:  str | None = None,
+    filter_title:    str | None = None,
+) -> list[dict[str, Any]]:
+    """Return accumulated duration grouped by the requested field within the time window."""
+    allowed = {"category", "process", "title"}
+    if group_by not in allowed:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"group_by must be one of {allowed}")
+
+    col_map = {
+        "category": Activity.category,
+        "process":  Activity.process,
+        "title":    Activity.title,
+    }
+    col = col_map[group_by]
+
+    engine = app.state.engine
+    with Session(engine) as session:
+        stmt = (
+            select(col, func.sum(Activity.duration_sec).label("total_sec"))
+            .where(Activity.end_ts.is_not(None))  # type: ignore[union-attr]
+            .where(col.is_not(None))              # type: ignore[union-attr]
+        )
+        if from_ts:
+            stmt = stmt.where(Activity.start_ts >= from_ts)         # type: ignore[operator]
+        if to_ts:
+            stmt = stmt.where(Activity.start_ts <= to_ts)           # type: ignore[operator]
+        if filter_category:
+            stmt = stmt.where(Activity.category.ilike(f"%{filter_category}%"))  # type: ignore[union-attr]
+        if filter_process:
+            stmt = stmt.where(Activity.process.ilike(f"%{filter_process}%"))    # type: ignore[union-attr]
+        if filter_title:
+            stmt = stmt.where(Activity.title.ilike(f"%{filter_title}%"))        # type: ignore[union-attr]
+        stmt = stmt.group_by(col).order_by(func.sum(Activity.duration_sec).desc()).limit(top_n)
+
+        rows = session.exec(stmt).all()
+        return [{"label": r[0] or "—", "total_sec": int(r[1] or 0)} for r in rows]
+
+
 @app.get("/api/status")
 def status() -> dict[str, Any]:
     engine = app.state.engine

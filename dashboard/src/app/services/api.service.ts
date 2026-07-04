@@ -32,6 +32,11 @@ export interface ActivityFilter {
   to_ts?: string;
 }
 
+export interface AccumulatedItem {
+  label: string;
+  total_sec: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private base = '/api';
@@ -59,5 +64,23 @@ export class ApiService {
 
   getBreakdown() {
     return this.http.get<BreakdownItem[]>(`${this.base}/stats/breakdown`);
+  }
+
+  getAccumulated(
+    groupBy: 'category' | 'process' | 'title',
+    fromTs?: string,
+    toTs?: string,
+    topN = 20,
+    filterCategory?: string,
+    filterProcess?: string,
+    filterTitle?: string,
+  ) {
+    const params: Record<string, string> = { group_by: groupBy, top_n: String(topN) };
+    if (fromTs)          params['from_ts']         = fromTs;
+    if (toTs)            params['to_ts']           = toTs;
+    if (filterCategory)  params['filter_category'] = filterCategory;
+    if (filterProcess)   params['filter_process']  = filterProcess;
+    if (filterTitle)     params['filter_title']    = filterTitle;
+    return this.http.get<AccumulatedItem[]>(`${this.base}/stats/accumulated`, { params });
   }
 }
