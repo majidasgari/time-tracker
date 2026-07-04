@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from sqlmodel import Session, func, select
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+from timetracker.config import ensure_config
+from timetracker.db.migrations import run_migrations, seed_rules_from_config
+from timetracker.db.models import Activity
+from timetracker.db.session import create_engine_from_path
+from timetracker.platform.factory import get_backend
+
+DIST_DIR = (
+    Path(__file__).parent.parent.parent.parent
+    / "dashboard" / "dist" / "dashboard" / "browser"
+)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    cfg = ensure_config()
+    engine = create_engine_from_path(cfg.storage.db_path)
+    run_migrations(engine)
+    with Session(engine) as session:
+        seed_rules_from_config(session, cfg)
+    _app.state.engine = engine
+    yield
+
+
+app = FastAPI(title="Time Tracker", lifespan=lifespan)
+
+
+@app.get("/api/activities")
+def list_activities(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+    engine = app.state.engine
+    with Session(engine) as session:
+        acts = session.exec(
+            select(Activity).order_by(Activity.start_ts.desc())  # type: ignore[attr-defined]
+            .offset(offset).limit(limit)
+        ).all()
+        return [
+            {
+                "id": a.id,
+                "start_ts": a.start_ts,
+                "end_ts": a.end_ts,
+                "duration_sec": a.duration_sec,
+                "process": a.process,
+                "title": a.title,
+                "category": a.category,
+            }
+            for a in acts
+        ]
+
+
+@app.get("/api/stats/breakdown")
+def stats_breakdown() -> list[dict[str, Any]]:
+    engine = app.state.engine
+    with Session(engine) as session:
+        rows = session.exec(
+            select(Activity.category, func.sum(Activity.duration_sec))
+            .where(Activity.end_ts.is_not(None))  # type: ignore[union-attr]
+            .group_by(Activity.category)
+        ).all()
+        return [{"category": r[0], "total_sec": r[1] or 0} for r in rows]
+
+
+@app.get("/api/status")
+def status() -> dict[str, Any]:
+    engine = app.state.engine
+    with Session(engine) as session:
+        total_acts = session.exec(select(func.count(Activity.id))).one()  # type: ignore[arg-type]
+        total_sec = session.exec(
+            select(func.sum(Activity.duration_sec)).where(Activity.end_ts.is_not(None))  # type: ignore[union-attr]
+        ).one()
+        return {
+            "total_activities": total_acts or 0,
+            "total_tracked_sec": total_sec or 0,
+            "backend": type(get_backend()).__name__,
+        }
+
+
+INDEX_HTML: str | None = None
+if DIST_DIR.exists():
+    INDEX_HTML = (DIST_DIR / "index.html").read_text(encoding="utf-8")
+
+    class _SPAFallback(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next: Any) -> Response:
+            response: Response = await call_next(request)
+            if response.status_code == 404 and INDEX_HTML:
+                return HTMLResponse(INDEX_HTML)
+            return response
+
+    app.add_middleware(_SPAFallback)
+    app.mount("/", StaticFiles(directory=str(DIST_DIR), html=True), name="dashboard")
+
+
+def run_server(host: str = "127.0.0.1", port: int = 8080) -> None:
+    import uvicorn
+
+    print(f"  Time Tracker API → http://{host}:{port}", flush=True)
+    uvicorn.run(app, host=host, port=port, log_level="warning")
+
+
+if __name__ == "__main__":
+    run_server()

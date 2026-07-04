@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+import logging
+import threading
+from datetime import UTC, datetime
+from typing import Any
+
+from sqlmodel import Session
+
+from timetracker.db.models import Activity, Meta
+from timetracker.platform.base import WindowInfo
+
+logger = logging.getLogger(__name__)
+
+
+def _now_ts() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def _changed(info: WindowInfo | None, activity: Activity | None) -> bool:
+    if activity is None:
+        return True
+    if info is None:
+        return True
+    return info.process != activity.process or info.title != activity.title
+
+
+class Sampler(threading.Thread):
+    def __init__(
+        self,
+        backend: Any,
+        engine: Any,
+        categorizer: Any,
+        poll_interval: int = 1,
+        stop_event: threading.Event | None = None,
+    ) -> None:
+        super().__init__(name="Sampler", daemon=True)
+        self._backend = backend
+        self._engine = engine
+        self._categorizer = categorizer
+        self._poll_interval = poll_interval
+        self._stop = stop_event or threading.Event()
+        self._current: Activity | None = None
+        self._rule_version: int = 0
+
+    def _get_rule_version(self, session: Session) -> int:
+        meta = session.get(Meta, "rule_version")
+        return int(meta.value) if meta else 1
+
+    def _open_activity(self, session: Session, info: WindowInfo | None) -> Activity:
+        process = info.process if info else None
+        title = info.title if info else None
+        category = self._categorizer.categorize(process, title)
+        act = Activity(
+            start_ts=_now_ts(),
+            process=process,
+            title=title,
+            category=category,
+            rule_version=self._rule_version,
+        )
+        session.add(act)
+        session.commit()
+        session.refresh(act)
+        return act
+
+    def _close_activity(self, session: Session, activity: Activity | None) -> None:
+        if activity is None or activity.end_ts is not None:
+            return
+        # re-fetch in current session if detached
+        if activity not in session:
+            activity = session.get(Activity, activity.id)
+            if activity is None or activity.end_ts is not None:
+                return
+        now = _now_ts()
+        activity.end_ts = now
+        if activity.start_ts:
+            try:
+                start = datetime.fromisoformat(activity.start_ts)
+                end = datetime.fromisoformat(now)
+                activity.duration_sec = max(0, int((end - start).total_seconds()))
+            except ValueError:
+                activity.duration_sec = 0
+        session.commit()
+
+    def run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                with Session(self._engine) as session:
+                    self._rule_version = self._get_rule_version(session)
+                    info = self._backend.get_active_window()
+                    if _changed(info, self._current):
+                        self._close_activity(session, self._current)
+                        if info and info.process:
+                            self._current = self._open_activity(session, info)
+                        else:
+                            self._current = self._open_activity(session, None)
+            except Exception:
+                logger.exception("Sampler error")
+            self._stop.wait(self._poll_interval)
+
+        with Session(self._engine) as session:
+            self._close_activity(session, self._current)

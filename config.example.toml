@@ -1,0 +1,35 @@
+[sampling]
+poll_interval_sec       = 1
+screenshot_interval_sec = 10
+screenshot_quality      = "low"
+
+[storage]
+db_path        = "~/.timetracker/data.db"
+screenshot_dir = "~/.timetracker/screenshots"
+retention_days = 7
+
+[ui]
+open_dashboard_on_start = false
+
+[[rules]]
+name          = "کدنویسی"
+process_regex = "code|jetbrains|cursor"
+color         = "#4CAF50"
+
+[[rules]]
+name          = "مرورگر"
+process_regex = "chrome|firefox|edge"
+title_regex   = ".*"
+color         = "#2196F3"
+
+[[rules]]
+name          = "ترمینال"
+process_regex = "kitty|alacritty|konsole|wezterm"
+color         = "#FF9800"
+
+[[screenshot_exclusions]]
+process_regex = "telegram|signal|whatsapp"
+
+[[screenshot_exclusions]]
+process_regex = ".*bank.*|.*paypal.*"
+title_regex   = ".*"

@@ -1,0 +1,17 @@
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'app-settings',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="space-y-6">
+      <h1 class="text-2xl font-bold">Settings</h1>
+      <div class="bg-gray-800 rounded-xl p-5">
+        <p class="text-gray-400">Settings will be implemented here.</p>
+      </div>
+    </div>
+  `
+})
+export class SettingsComponent {}

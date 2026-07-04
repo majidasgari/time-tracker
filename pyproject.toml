@@ -1,0 +1,67 @@
+[project]
+name = "timetracker"
+version = "0.1.0"
+description = "Cross-platform desktop time tracker with regex categorization and Angular dashboard"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Majid Asgari" },
+]
+
+dependencies = [
+    "PySide6>=6.6",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "sqlmodel>=0.0.16",
+    "pydantic>=2.6",
+    "psutil>=5.9",
+    "Pillow>=10",
+    "mss>=9",
+    "regex>=2024.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3",
+    "black>=24.0",
+    "mypy>=1.8",
+    "pyinstaller>=6.0",
+]
+x11 = ["python-xlib>=0.33"]
+win32 = ["pywin32>=306"]
+wayland = ["dbus-python>=1.3"]
+
+[project.urls]
+Source = "https://github.com/majidasgari/time-tracker"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
