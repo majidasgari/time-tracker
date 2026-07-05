@@ -14,6 +14,10 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from timetracker.api.routes.categories import router as categories_router
+from timetracker.api.routes.config import router as config_router
+from timetracker.api.routes.jobs import router as jobs_router
+from timetracker.api.routes.screenshots import router as screenshots_router
+from timetracker.api.routes.tracking import router as tracking_router
 from timetracker.config import ensure_config
 from timetracker.db.migrations import run_migrations, seed_rules_from_config
 from timetracker.db.models import Activity
@@ -34,11 +38,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     with Session(engine) as session:
         seed_rules_from_config(session, cfg)
     _app.state.engine = engine
+    _app.state.config = cfg
+    Path(cfg.storage.screenshot_dir).expanduser().mkdir(parents=True, exist_ok=True)
     yield
 
 
 app = FastAPI(title="Time Tracker", lifespan=lifespan)
 app.include_router(categories_router, prefix="/api/categories")
+app.include_router(config_router, prefix="/api/config")
+app.include_router(jobs_router, prefix="/api/jobs")
+app.include_router(screenshots_router, prefix="/api/screenshots")
+app.include_router(tracking_router, prefix="/api/tracking")
 
 
 @app.get("/api/activities")
@@ -79,6 +89,20 @@ def list_activities(
             .offset(offset).limit(limit)
         ).all()
 
+        # Attach screenshot_id for each activity (first matching screenshot)
+        act_ids = [a.id for a in acts]
+        screenshot_map: dict[int, int] = {}
+        if act_ids:
+            from timetracker.db.models import Screenshot
+            shots = session.exec(
+                select(Screenshot.id, Screenshot.activity_id)
+                .where(Screenshot.activity_id.in_(act_ids))  # type: ignore[union-attr]
+                .order_by(Screenshot.id)
+            ).all()
+            for shot_id, act_id in shots:
+                if act_id not in screenshot_map:
+                    screenshot_map[act_id] = shot_id
+
         data = [
             {
                 "id": a.id,
@@ -88,6 +112,9 @@ def list_activities(
                 "process": a.process,
                 "title": a.title,
                 "category": a.category,
+                "job": a.job,
+                "job_description": a.job_description,
+                "screenshot_id": screenshot_map.get(a.id),
             }
             for a in acts
         ]
@@ -126,9 +153,26 @@ def timeline_activities(
                 "process": a.process,
                 "title": a.title,
                 "category": a.category,
+                "job": a.job,
+                "job_description": a.job_description,
             }
             for a in acts
         ]
+
+
+@app.put("/api/activities/{activity_id}/job")
+def assign_job(activity_id: int, job: str | None = None, description: str | None = None) -> dict[str, str]:
+    from fastapi import HTTPException
+    engine = app.state.engine
+    with Session(engine) as session:
+        act = session.get(Activity, activity_id)
+        if not act:
+            raise HTTPException(404, "Activity not found")
+        act.job = job
+        act.job_description = description
+        session.add(act)
+        session.commit()
+        return {"status": "ok"}
 
 
 @app.get("/api/stats/breakdown")

@@ -135,25 +135,43 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
             class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
         </div>
 
+        <!-- Active filters -->
+        <div *ngIf="filterCategory || filterProcess || filterTitle" class="w-full flex flex-wrap items-center gap-2">
+          <span class="text-xs text-indigo-300">Active filters:</span>
+          <span *ngIf="filterCategory" class="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 flex items-center gap-1">
+            category: {{ filterCategory }}
+            <button (click)="filterCategory = ''; onTextFilter()" class="text-gray-500 hover:text-white">&times;</button>
+          </span>
+          <span *ngIf="filterProcess" class="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 flex items-center gap-1">
+            process: {{ filterProcess }}
+            <button (click)="filterProcess = ''; onTextFilter()" class="text-gray-500 hover:text-white">&times;</button>
+          </span>
+          <span *ngIf="filterTitle" class="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 flex items-center gap-1">
+            title: {{ filterTitle }}
+            <button (click)="filterTitle = ''; onTextFilter()" class="text-gray-500 hover:text-white">&times;</button>
+          </span>
+          <button (click)="filterCategory = ''; filterProcess = ''; filterTitle = ''; onTextFilter()"
+            class="text-xs text-gray-500 hover:text-gray-300 underline">Clear all</button>
+        </div>
+
         <!-- Total in range -->
         <div class="w-full flex gap-6 text-sm text-gray-300" *ngIf="totalSec > 0">
           <span>Total: <b class="text-white">{{ formatTotal(totalSec) }}</b></span>
         </div>
       </div>
-
       <!-- Charts grid -->
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4" *ngIf="!loading; else spinner">
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4" *ngIf="!loading; else spinnerTpl">
+
 
         <!-- By Category -->
         <div class="bg-gray-800 rounded-xl p-5">
           <h2 class="text-base font-semibold mb-3 text-indigo-300">By Category</h2>
-          <div *ngIf="catData.length; else noData"
-            echarts [options]="catOption" class="h-64 w-full">
-          </div>
+          <div *ngIf="catData.length" echarts [options]="catOption" (chartClick)="onCatClick($event)" class="h-64 w-full"></div>
           <!-- Table -->
           <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
             <div *ngFor="let d of catData; let i = index"
-              class="flex items-center gap-2">
+              class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/30 rounded px-1 py-0.5 transition-colors"
+              (click)="filterCategory = d.label; onTextFilter()">
               <span class="w-3 h-3 rounded-full flex-shrink-0" [style.background]="categoryColor(d.label)"></span>
               <span class="flex-1 truncate text-gray-300" [title]="d.label">{{ d.label }}</span>
               <span class="font-mono text-gray-400">{{ fmt(d.total_sec) }}</span>
@@ -165,16 +183,17 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
         <!-- By Process -->
         <div class="bg-gray-800 rounded-xl p-5">
           <h2 class="text-base font-semibold mb-3 text-cyan-300">By Process</h2>
-          <div *ngIf="procData.length; else noData"
-            echarts [options]="procOption" class="h-64 w-full">
-          </div>
+          <div *ngIf="procData.length" echarts [options]="procOption" (chartClick)="onProcClick($event)" class="h-64 w-full"></div>
           <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
             <div *ngFor="let d of procData; let i = index"
-              class="flex items-center gap-2">
+              class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/30 rounded px-1 py-0.5 transition-colors"
+              (click)="filterProcess = d.label; onTextFilter()">
               <span class="w-3 h-3 rounded-full flex-shrink-0" [style.background]="color(i)"></span>
               <span class="flex-1 truncate text-gray-300" [title]="d.label">{{ d.label }}</span>
               <span class="font-mono text-gray-400">{{ fmt(d.total_sec) }}</span>
               <span class="text-gray-500 w-10 text-right">{{ pct(d.total_sec, procData) }}%</span>
+              <button (click)="$event.stopPropagation(); openCategorize('process', d.label)"
+                class="text-gray-600 hover:text-indigo-400 text-xs px-1" title="Add to category">+</button>
             </div>
           </div>
         </div>
@@ -182,31 +201,59 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
         <!-- By Title -->
         <div class="bg-gray-800 rounded-xl p-5">
           <h2 class="text-base font-semibold mb-3 text-amber-300">By Title (top 20)</h2>
-          <div *ngIf="titleData.length; else noData"
-            echarts [options]="titleOption" class="h-64 w-full">
-          </div>
+          <div *ngIf="titleData.length" echarts [options]="titleOption" (chartClick)="onTitleClick($event)" class="h-64 w-full"></div>
           <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
             <div *ngFor="let d of titleData; let i = index"
-              class="flex items-center gap-2">
+              class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/30 rounded px-1 py-0.5 transition-colors"
+              (click)="filterTitle = d.label; onTextFilter()">
               <span class="w-3 h-3 rounded-full flex-shrink-0" [style.background]="color(i)"></span>
               <span class="flex-1 truncate text-gray-300" [title]="d.label">{{ d.label }}</span>
               <span class="font-mono text-gray-400">{{ fmt(d.total_sec) }}</span>
               <span class="text-gray-500 w-10 text-right">{{ pct(d.total_sec, titleData) }}%</span>
+              <button (click)="$event.stopPropagation(); openCategorize('title', d.label)"
+                class="text-gray-600 hover:text-indigo-400 text-xs px-1" title="Add to category">+</button>
             </div>
           </div>
         </div>
 
       </div>
 
-      <ng-template #spinner>
+      <ng-template #spinnerTpl>
         <div class="flex justify-center py-16">
           <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </ng-template>
+    </div>
 
-      <ng-template #noData>
-        <div class="flex items-center justify-center h-32 text-gray-500 text-sm">No data in this range</div>
-      </ng-template>
+    <!-- Categorize modal -->
+    <div *ngIf="showCatModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" (click)="showCatModal = false">
+      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-700" (click)="$event.stopPropagation()">
+        <h2 class="text-lg font-semibold mb-4">Add to Category</h2>
+        <div class="space-y-3">
+          <div class="text-sm text-gray-400">
+            Create a rule for <code class="text-indigo-300 font-mono">{{ catModalValue }}</code>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Category</label>
+            <select [(ngModel)]="catModalCategoryId"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+              <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Regex</label>
+            <input type="text" [(ngModel)]="catModalRegex"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-indigo-500" />
+            <p class="text-xs text-gray-500 mt-1">Will match {{ catModalType }} containing this pattern.</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-3 mt-5">
+          <button (click)="showCatModal = false"
+            class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm transition-colors">Cancel</button>
+          <button (click)="saveCategorize()"
+            class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition-colors">Add Rule</button>
+        </div>
+      </div>
     </div>
   `
 })
@@ -233,6 +280,14 @@ export class ChartsComponent implements OnInit, OnDestroy {
 
   categoryColors: Record<string, string> = {};
 
+  // Categorize dialog
+  showCatModal = false;
+  catModalType: 'process' | 'title' = 'process';
+  catModalValue = '';
+  catModalRegex = '';
+  catModalCategoryId: number | null = null;
+  categories: CategoryOut[] = [];
+
   // Text filters
   filterCategory = '';
   filterProcess  = '';
@@ -251,6 +306,7 @@ export class ChartsComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.filter$.pipe(debounceTime(300), takeUntil(this.destroy)).subscribe(() => this.load());
     this.loadCategories();
+    this.fetchCategories();
     this.selectPreset('today');
   }
 
@@ -263,6 +319,52 @@ export class ChartsComponent implements OnInit, OnDestroy {
         this.categoryColors[c.name] = c.color;
       }
     });
+  }
+
+  fetchCategories() {
+    this.api.getCategories().subscribe(cats => this.categories = cats);
+  }
+
+  openCategorize(type: 'process' | 'title', value: string) {
+    this.catModalType = type;
+    this.catModalValue = value;
+    this.catModalRegex = `.*${this._escapeRegex(value)}.*`;
+    this.catModalCategoryId = this.categories.length > 0 ? this.categories[0].id : null;
+    this.showCatModal = true;
+  }
+
+  saveCategorize() {
+    if (!this.catModalCategoryId || !this.catModalRegex) return;
+    const body: any = {};
+    if (this.catModalType === 'process') {
+      body.process_regex = this.catModalRegex;
+    } else {
+      body.title_regex = this.catModalRegex;
+    }
+    this.api.createRule(this.catModalCategoryId, body).subscribe({
+      next: () => {
+        this.showCatModal = false;
+        this.loadCategories();
+        this.load();
+      },
+      error: () => {},
+    });
+  }
+
+  private _escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  onCatClick(e: any) {
+    if (e.name) { this.filterCategory = e.name; this.onTextFilter(); }
+  }
+
+  onProcClick(e: any) {
+    if (e.name) { this.filterProcess = e.name; this.onTextFilter(); }
+  }
+
+  onTitleClick(e: any) {
+    if (e.name) { this.filterTitle = e.name; this.onTextFilter(); }
   }
 
   onTextFilter() { this.filter$.next(); }

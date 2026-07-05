@@ -9,6 +9,9 @@ export interface Activity {
   process: string | null;
   title: string | null;
   category: string | null;
+  job: string | null;
+  job_description: string | null;
+  screenshot_id: number | null;
 }
 
 export interface Status {
@@ -58,6 +61,8 @@ export interface TimelineActivity {
   process: string | null;
   title: string | null;
   category: string | null;
+  job: string | null;
+  job_description: string | null;
 }
 
 export interface CategoryOut {
@@ -166,4 +171,95 @@ export class ApiService {
   deleteRule(ruleId: number) {
     return this.http.delete(`${this.base}/categories/rules/${ruleId}`);
   }
+
+  // ── Screenshots ──
+
+  getScreenshots(params: { limit?: number; offset?: number; activity_id?: number; from_ts?: string; to_ts?: string } = {}) {
+    const q: Record<string, string> = {};
+    if (params.limit != null)      q['limit']       = String(params.limit);
+    if (params.offset != null)     q['offset']      = String(params.offset);
+    if (params.activity_id != null) q['activity_id'] = String(params.activity_id);
+    if (params.from_ts)            q['from_ts']      = params.from_ts;
+    if (params.to_ts)              q['to_ts']        = params.to_ts;
+    return this.http.get<{ items: ScreenshotInfo[]; total: number }>(`${this.base}/screenshots`, { params: q });
+  }
+
+  getScreenshotImageUrl(shotId: number): string {
+    return `${this.base}/screenshots/${shotId}/image`;
+  }
+
+  getScreenshotNear(ts: string) {
+    return this.http.get<ScreenshotInfo | null>(`${this.base}/screenshots/near`, { params: { ts } });
+  }
+
+  // ── Config ──
+
+  getConfig() {
+    return this.http.get<AppConfig>(`${this.base}/config`);
+  }
+
+  updateConfig(data: Partial<AppConfig>) {
+    return this.http.put(`${this.base}/config`, data);
+  }
+
+  pickDirectory(current: string) {
+    return this.http.get<{ path: string }>(`${this.base}/config/pick-dir`, {
+      params: { current },
+    });
+  }
+
+  // ── Jobs & Tracking ──
+
+  getJobs() {
+    return this.http.get<JobOut[]>(`${this.base}/jobs`);
+  }
+
+  saveJob(data: { name: string; description: string | null }) {
+    return this.http.post<JobOut>(`${this.base}/jobs`, data);
+  }
+
+  jobAutocomplete(q: string) {
+    return this.http.get<{ name: string; description: string | null }[]>(`${this.base}/jobs/autocomplete`, { params: { q } });
+  }
+
+  assignActivityJob(id: number, job: string | null, description: string | null) {
+    return this.http.put(`${this.base}/activities/${id}/job`, null, {
+      params: { job: job || '', description: description || '' },
+    });
+  }
+
+  getManualJob() {
+    return this.http.get<{ active: boolean; job: string; description: string }>(`${this.base}/tracking/manual-job`);
+  }
+
+  setManualJob(job: string, description: string | null) {
+    return this.http.post(`${this.base}/tracking/manual-job`, { job, description });
+  }
+
+  clearManualJob() {
+    return this.http.delete(`${this.base}/tracking/manual-job`);
+  }
+}
+
+export interface JobOut {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export interface AppConfig {
+  screenshot_interval_sec: number;
+  screenshot_quality: string;
+  screenshot_dir: string;
+  retention_days: number;
+  poll_interval_sec: number;
+  db_path: string;
+}
+
+export interface ScreenshotInfo {
+  id: number;
+  activity_id: number | null;
+  timestamp: string;
+  file_path: string;
+  file_size: number;
 }

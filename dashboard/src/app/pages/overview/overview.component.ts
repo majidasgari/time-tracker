@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService, ActivityFilter, BreakdownItem, Status, CategoryOut } from '../../services/api.service';
+import { ApiService, ActivityFilter, BreakdownItem, Status, CategoryOut, JobOut } from '../../services/api.service';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
 
 const PAGE_SIZE = 25;
@@ -42,6 +42,37 @@ const PAGE_SIZE = 25;
             <span class="text-sm w-16 text-right">{{ item.total_sec / 60 | number:'1.0-0' }}m</span>
           </div>
         </div>
+      </div>
+
+      <!-- Manual Job -->
+      <div class="bg-gray-800 rounded-xl p-4 flex items-center gap-3 flex-wrap">
+        <span class="text-sm text-gray-400 flex-shrink-0">Manual Job</span>
+        <button (click)="toggleManualJob()"
+          [class]="'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-shrink-0 ' +
+            (manualActive ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300')">
+          {{ manualActive ? 'ON' : 'OFF' }}
+        </button>
+        <input type="text" [(ngModel)]="manualJobName" (ngModelChange)="onManualJobNameChange()"
+          (focus)="showJobSuggestions = true" (blur)="hideJobSuggestions()"
+          placeholder="Job name…"
+          class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm w-40 focus:outline-none focus:border-indigo-500" />
+        <!-- autocomplete dropdown -->
+        <div *ngIf="showJobSuggestions && jobSuggestions.length > 0" class="absolute z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-xl mt-20 ml-24 max-h-40 overflow-y-auto min-w-[160px]">
+          <div *ngFor="let s of jobSuggestions" (mousedown)="selectManualJob(s)"
+            class="px-3 py-1.5 text-sm hover:bg-gray-700 cursor-pointer text-gray-300">
+            {{ s.name }}
+          </div>
+        </div>
+        <input type="text" [(ngModel)]="manualJobDesc" placeholder="Description…"
+          class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-[200px] focus:outline-none focus:border-indigo-500" />
+        <button (click)="applyManualJob()"
+          class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm transition-colors flex-shrink-0">
+          Apply
+        </button>
+        <button *ngIf="manualActive" (click)="clearManualJob()"
+          class="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-sm transition-colors flex-shrink-0">
+          Clear
+        </button>
       </div>
 
       <!-- Activities table -->
@@ -105,26 +136,59 @@ const PAGE_SIZE = 25;
                 <th class="text-center py-2 px-2">Time</th>
                 <th class="text-center py-2 px-2">Process</th>
                 <th class="text-center py-2 px-2">Category</th>
+                <th class="text-center py-2 px-2">Job</th>
                 <th class="text-center py-2 px-2 max-w-xs">Title</th>
                 <th class="text-center py-2 px-2">Duration</th>
+                <th class="text-center py-2 px-2">Shot</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let a of activities" class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
                 <td class="py-2 px-2 text-center whitespace-nowrap text-gray-300">{{ a.start_ts?.slice(0, 10) }} {{ a.start_ts?.slice(11, 19) }}</td>
-                <td class="py-2 px-2 text-center">{{ a.process || '—' }}</td>
+                <td class="py-2 px-2 text-center cursor-pointer hover:text-indigo-400 transition-colors"
+                  (click)="openCategorize('process', a.process)">{{ a.process || '—' }}</td>
                 <td class="py-2 px-2 text-center">
                   <span class="px-2 py-0.5 rounded text-xs" [style.background]="getCategoryColor(a.category)">
                     {{ a.category || '—' }}
                   </span>
                 </td>
+                <td class="py-2 px-2 text-center">
+                  <span *ngIf="editingJobId !== a.id"
+                    (click)="startEditJob(a.id, a.job, a.job_description)"
+                    class="cursor-pointer hover:text-indigo-400 text-xs"
+                    [class.text-indigo-300]="a.job"
+                    [class.text-gray-500]="!a.job">
+                    {{ a.job || '—' }}
+                  </span>
+                  <div *ngIf="editingJobId === a.id" class="flex flex-col gap-1" (click)="$event.stopPropagation()">
+                    <input #jobInput [(ngModel)]="editJobName" placeholder="Job…"
+                      class="bg-gray-700 border border-gray-600 rounded px-2 py-0.5 text-xs w-24 focus:outline-none focus:border-indigo-500" />
+                    <input [(ngModel)]="editJobDesc" placeholder="Description…"
+                      class="bg-gray-700 border border-gray-600 rounded px-2 py-0.5 text-xs w-24 focus:outline-none focus:border-indigo-500" />
+                    <div class="flex gap-1">
+                      <button (click)="saveJobAssignment(a.id)"
+                        class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 text-white">Save</button>
+                      <button (click)="editingJobId = null"
+                        class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">Cancel</button>
+                    </div>
+                  </div>
+                </td>
                 <td class="py-2 px-2 text-center max-w-xs">
-                  <span class="block truncate" [title]="a.title || ''">{{ a.title || '—' }}</span>
+                  <span class="block truncate cursor-pointer hover:text-indigo-400 transition-colors" [title]="a.title || ''"
+                    (click)="openCategorize('title', a.title)">{{ a.title || '—' }}</span>
                 </td>
                 <td class="py-2 px-2 text-center whitespace-nowrap font-mono">{{ formatDuration(a) }}</td>
+                <td class="py-2 px-1 text-center">
+                  <img *ngIf="a.screenshot_id != null"
+                    [src]="screenshotUrl(a.screenshot_id)"
+                    class="w-14 h-10 object-cover rounded border border-gray-700 cursor-pointer hover:ring-1 hover:ring-indigo-500 mx-auto"
+                    (click)="$event.stopPropagation(); previewScreenshotId = a.screenshot_id"
+                    alt="shot" />
+                  <span *ngIf="a.screenshot_id == null" class="text-gray-600 text-[10px]">—</span>
+                </td>
               </tr>
               <tr *ngIf="activities.length === 0">
-                <td colspan="5" class="py-8 text-center text-gray-500">No activities found</td>
+                <td colspan="7" class="py-8 text-center text-gray-500">No activities found</td>
               </tr>
             </tbody>
           </table>
@@ -153,6 +217,42 @@ const PAGE_SIZE = 25;
         </div>
       </div>
     </div>
+
+    <!-- Categorize modal -->
+    <div *ngIf="showCatModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" (click)="showCatModal = false">
+      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-700" (click)="$event.stopPropagation()">
+        <h2 class="text-lg font-semibold mb-4">Add to Category</h2>
+        <div class="space-y-3">
+          <div class="text-sm text-gray-400">
+            Create a rule for <code class="text-indigo-300 font-mono">{{ catModalValue }}</code>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Category</label>
+            <select [(ngModel)]="catModalCategoryId"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+              <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Regex</label>
+            <input type="text" [(ngModel)]="catModalRegex"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-3 mt-5">
+          <button (click)="showCatModal = false"
+            class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm transition-colors">Cancel</button>
+          <button (click)="saveCategorize()"
+            class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition-colors">Add Rule</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screenshot preview overlay -->
+    <div *ngIf="previewScreenshotId != null" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+      (click)="previewScreenshotId = null">
+      <img [src]="screenshotUrl(previewScreenshotId)" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl" alt="Screenshot preview" />
+    </div>
   `
 })
 export class OverviewComponent implements OnInit, OnDestroy {
@@ -161,6 +261,29 @@ export class OverviewComponent implements OnInit, OnDestroy {
   status: Status | null = null;
   maxSec = 1;
   categoryColors: Record<string, string> = {};
+
+  // Manual job
+  manualActive = false;
+  manualJobName = '';
+  manualJobDesc = '';
+  jobSuggestions: { name: string; description: string | null }[] = [];
+  showJobSuggestions = false;
+
+  // Inline job editing
+  editingJobId: number | null = null;
+  editJobName = '';
+  editJobDesc = '';
+
+  // Screenshot preview
+  previewScreenshotId: number | null = null;
+
+  // Categorize dialog
+  showCatModal = false;
+  catModalType: 'process' | 'title' = 'process';
+  catModalValue = '';
+  catModalRegex = '';
+  catModalCategoryId: number | null = null;
+  categories: CategoryOut[] = [];
 
   // Filters
   filterProcess  = '';
@@ -193,6 +316,7 @@ export class OverviewComponent implements OnInit, OnDestroy {
     });
 
     this.loadCategories();
+    this.loadManualJob();
     this.loadActivities();
     this.loadSummary();
     setInterval(() => {
@@ -253,6 +377,7 @@ export class OverviewComponent implements OnInit, OnDestroy {
   loadCategories() {
     this.api.getCategories().subscribe(cats => {
       this.categoryColors = {};
+      this.categories = cats;
       for (const c of cats) {
         this.categoryColors[c.name] = c.color;
       }
@@ -261,6 +386,10 @@ export class OverviewComponent implements OnInit, OnDestroy {
 
   getCategoryColor(name: string | null): string {
     return name ? (this.categoryColors[name] || '#555555') : '#555555';
+  }
+
+  screenshotUrl(id: number): string {
+    return this.api.getScreenshotImageUrl(id);
   }
 
   get totalDurationDecimal(): string {
@@ -291,5 +420,110 @@ export class OverviewComponent implements OnInit, OnDestroy {
     const h = Math.floor(sec / 3600);
     const m = Math.floor((sec % 3600) / 60);
     return `${h}h ${m}m`;
+  }
+
+  // ── Manual Job ──
+
+  loadManualJob() {
+    this.api.getManualJob().pipe(takeUntil(this.destroy)).subscribe(m => {
+      this.manualActive = m.active;
+      this.manualJobName = m.job;
+      this.manualJobDesc = m.description;
+    });
+  }
+
+  toggleManualJob() {
+    this.manualActive = !this.manualActive;
+    if (this.manualActive && this.manualJobName) {
+      this.api.setManualJob(this.manualJobName, this.manualJobDesc).subscribe();
+    } else if (!this.manualActive) {
+      this.api.clearManualJob().subscribe();
+    }
+  }
+
+  onManualJobNameChange() {
+    if (!this.manualJobName) { this.jobSuggestions = []; return; }
+    this.api.jobAutocomplete(this.manualJobName).subscribe(s => {
+      this.jobSuggestions = s;
+    });
+  }
+
+  selectManualJob(s: { name: string; description: string | null }) {
+    this.manualJobName = s.name;
+    this.manualJobDesc = s.description || '';
+    this.jobSuggestions = [];
+    this.showJobSuggestions = false;
+  }
+
+  hideJobSuggestions() {
+    setTimeout(() => { this.showJobSuggestions = false; }, 200);
+  }
+
+  applyManualJob() {
+    this.api.setManualJob(this.manualJobName, this.manualJobDesc).subscribe(() => {
+      this.loadManualJob();
+    });
+  }
+
+  clearManualJob() {
+    this.api.clearManualJob().subscribe(() => {
+      this.manualActive = false;
+      this.manualJobName = '';
+      this.manualJobDesc = '';
+    });
+  }
+
+  // ── Inline Job Edit ──
+
+  startEditJob(id: number, job: string | null, desc: string | null) {
+    this.editingJobId = id;
+    this.editJobName = job || '';
+    this.editJobDesc = desc || '';
+  }
+
+  saveJobAssignment(activityId: number) {
+    const j = this.editJobName || null;
+    const d = this.editJobDesc || null;
+    this.api.assignActivityJob(activityId, j, d).subscribe(() => {
+      this.editingJobId = null;
+      // Also save job to job list for autocomplete
+      if (j) {
+        this.api.saveJob({ name: j, description: d }).subscribe();
+      }
+      this.loadActivities();
+    });
+  }
+
+  // ── Categorize ──
+
+  openCategorize(type: 'process' | 'title', value: string) {
+    if (!value) return;
+    this.catModalType = type;
+    this.catModalValue = value;
+    this.catModalRegex = `.*${this._escapeRegex(value)}.*`;
+    this.catModalCategoryId = this.categories.length > 0 ? this.categories[0].id : null;
+    this.showCatModal = true;
+  }
+
+  saveCategorize() {
+    if (!this.catModalCategoryId || !this.catModalRegex) return;
+    const body: any = {};
+    if (this.catModalType === 'process') {
+      body.process_regex = this.catModalRegex;
+    } else {
+      body.title_regex = this.catModalRegex;
+    }
+    this.api.createRule(this.catModalCategoryId, body).subscribe({
+      next: () => {
+        this.showCatModal = false;
+        this.loadCategories();
+        this.loadActivities();
+      },
+      error: () => {},
+    });
+  }
+
+  private _escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }

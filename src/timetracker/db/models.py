@@ -18,6 +18,8 @@ class Activity(SQLModel, table=True):
     title: str | None = None
     category: str | None = None
     rule_version: int = 0
+    job: str | None = None
+    job_description: str | None = None
 
 
 class Screenshot(SQLModel, table=True):
@@ -51,3 +53,9 @@ class Rule(SQLModel, table=True):
 class Meta(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: str
+
+
+class Job(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True)
+    description: str | None = None

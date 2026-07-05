@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, text
 
 from timetracker.config import Config
 from timetracker.db.models import Activity, Category, Meta, Rule
@@ -11,9 +11,30 @@ from timetracker.db.session import init_db
 
 def run_migrations(engine: Any) -> None:
     init_db(engine)
+    _migrate_activity_columns(engine)
     with Session(engine) as session:
         seed_meta_defaults(session)
         seed_system_categories(session)
+
+
+def _migrate_activity_columns(engine: Any) -> None:
+    """Add new columns to Activity if they don't exist (safe ALTER TABLE)."""
+    import sqlite3
+
+    with engine.begin() as conn:
+        existing = set()
+        try:
+            rows = conn.exec_driver_sql("PRAGMA table_info(activity)")
+            for row in rows:
+                existing.add(row[1])
+        except Exception:
+            return
+        for col in ("job", "job_description"):
+            if col not in existing:
+                try:
+                    conn.exec_driver_sql(f"ALTER TABLE activity ADD COLUMN {col} TEXT")
+                except Exception:
+                    pass
 
 
 def seed_meta_defaults(session: Session) -> None:
