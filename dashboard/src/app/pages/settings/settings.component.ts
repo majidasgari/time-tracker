@@ -121,11 +121,11 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
 
       <!-- Save -->
       <div class="flex items-center justify-end">
+        <p class="text-xs text-gray-500 mr-8">Restart required for changes to take effect.</p>
         <button (click)="save()" [disabled]="saving"
           class="px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium transition-colors">
           {{ saving ? 'Saving…' : 'Save Settings' }}
         </button>
-        <p class="text-xs text-gray-500 mr-4">Restart required for changes to take effect.</p>
       </div>
     </div>
   `,

@@ -107,10 +107,25 @@ class Sampler(threading.Thread):
         logger.info("activity closed #%d  process=%s  duration=%ds",
                      activity.id, activity.process, activity.duration_sec or 0)
 
+    def _is_spectacle_running(self) -> bool:
+        try:
+            import psutil
+            for proc in psutil.process_iter(['name']):
+                if proc.info['name'] == 'spectacle':
+                    return True
+        except Exception:
+            pass
+        return False
+
     def _maybe_capture_screenshot(self, session: Session) -> None:
         now = datetime.now().timestamp()
         if now - self._last_shot < self._screenshot_interval:
             return
+
+        if self._is_spectacle_running():
+            logger.debug("spectacle is active, skipping screenshot")
+            return
+
         self._last_shot = now
 
         file_path = capture_screenshot(self._screenshot_dir, self._screenshot_quality)
