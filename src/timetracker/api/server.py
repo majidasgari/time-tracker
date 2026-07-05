@@ -30,6 +30,28 @@ DIST_DIR = (
 )
 
 
+def _get_dist_dir() -> Path | None:
+    """Return the path to the Angular dashboard dist directory.
+
+    Handles both dev runs and PyInstaller-frozen environments.
+    """
+    if DIST_DIR.exists():
+        return DIST_DIR
+
+    import sys
+
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        frozen_dist = base / "dashboard" / "dist" / "dashboard" / "browser"
+        if frozen_dist.exists():
+            return frozen_dist
+        alt = base / "dist" / "dashboard" / "browser"
+        if alt.exists():
+            return alt
+
+    return None
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     cfg = ensure_config()
@@ -266,8 +288,9 @@ def status() -> dict[str, Any]:
 
 
 INDEX_HTML: str | None = None
-if DIST_DIR.exists():
-    INDEX_HTML = (DIST_DIR / "index.html").read_text(encoding="utf-8")
+dist_dir = _get_dist_dir()
+if dist_dir and dist_dir.exists():
+    INDEX_HTML = (dist_dir / "index.html").read_text(encoding="utf-8")
 
     class _SPAFallback(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next: Any) -> Response:
@@ -277,7 +300,7 @@ if DIST_DIR.exists():
             return response
 
     app.add_middleware(_SPAFallback)
-    app.mount("/", StaticFiles(directory=str(DIST_DIR), html=True), name="dashboard")
+    app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="dashboard")
 
 
 def run_server(host: str = "127.0.0.1", port: int = 8080) -> None:
