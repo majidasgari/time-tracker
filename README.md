@@ -123,13 +123,19 @@ The dashboard is available at `http://127.0.0.1:8080` and opens in the default b
 
 ## Building a Linux Executable
 
-Prerequisite: `pyinstaller` is included in dev dependencies, or install manually:
+### Prerequisites
 
 ```bash
-pip install pyinstaller
+# System packages (Ubuntu/Debian)
+sudo apt install libdbus-1-dev python3-dev
+
+# Python virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,wayland]"    # or .[dev,x11] for X11
 ```
 
-### Step 1: Build Angular dashboard
+### Step 1: Build the Angular dashboard
 
 ```bash
 cd dashboard
@@ -143,56 +149,55 @@ cd ..
 ```bash
 pyinstaller \
   --name=time-tracker \
+  --onedir \
   --add-data "dashboard/dist/dashboard/browser:dashboard/dist/dashboard/browser" \
-  --hidden-import=timetracker \
-  --hidden-import=timetracker.config \
-  --hidden-import=timetracker.db \
-  --hidden-import=timetracker.db.models \
-  --hidden-import=timetracker.db.migrations \
-  --hidden-import=timetracker.db.session \
-  --hidden-import=timetracker.api \
-  --hidden-import=timetracker.api.server \
-  --hidden-import=timetracker.api.routes \
-  --hidden-import=timetracker.api.routes.categories \
-  --hidden-import=timetracker.api.routes.config \
-  --hidden-import=timetracker.api.routes.jobs \
-  --hidden-import=timetracker.api.routes.screenshots \
-  --hidden-import=timetracker.api.routes.tracking \
-  --hidden-import=timetracker.platform \
-  --hidden-import=timetracker.platform.base \
-  --hidden-import=timetracker.platform.factory \
-  --hidden-import=timetracker.platform.linux_x11 \
-  --hidden-import=timetracker.platform.linux_wayland \
-  --hidden-import=timetracker.screenshots \
-  --hidden-import=timetracker.screenshots.capture \
-  --hidden-import=timetracker.tracking \
-  --hidden-import=timetracker.tracking.categorizer \
-  --hidden-import=timetracker.tracking.recompute \
-  --hidden-import=timetracker.tracking.sampler \
-  --hidden-import=timetracker.ui \
-  --hidden-import=timetracker.ui.tray \
-  --hidden-import=psutil \
-  --hidden-import=PIL \
-  --hidden-import=PIL.Image \
-  --hidden-import=mss \
-  --hidden-import=regex \
-  --hidden-import=uvicorn \
-  --hidden-import=sqlmodel \
-  --hidden-import=pydantic \
-  --hidden-import=pydantic_settings \
-  --hidden-import=starlette \
-  --hidden-import=fastapi \
-  --hidden-import=PySide6 \
-  --hidden-import=PySide6.QtCore \
-  --hidden-import=PySide6.QtGui \
-  --hidden-import=PySide6.QtWidgets \
+  --hidden-import timetracker.config \
+  --hidden-import timetracker.db.models \
+  --hidden-import timetracker.db.migrations \
+  --hidden-import timetracker.db.session \
+  --hidden-import timetracker.api.server \
+  --hidden-import timetracker.api.routes.categories \
+  --hidden-import timetracker.api.routes.config \
+  --hidden-import timetracker.api.routes.jobs \
+  --hidden-import timetracker.api.routes.screenshots \
+  --hidden-import timetracker.api.routes.tracking \
+  --hidden-import timetracker.api.routes.stats \
+  --hidden-import timetracker.platform.base \
+  --hidden-import timetracker.platform.factory \
+  --hidden-import timetracker.platform.linux_x11 \
+  --hidden-import timetracker.platform.linux_wayland \
+  --hidden-import timetracker.screenshots.capture \
+  --hidden-import timetracker.tracking.categorizer \
+  --hidden-import timetracker.tracking.recompute \
+  --hidden-import timetracker.tracking.sampler \
+  --hidden-import timetracker.ui.tray \
+  --hidden-import psutil \
+  --hidden-import PIL \
+  --hidden-import PIL.Image \
+  --hidden-import mss \
+  --hidden-import regex \
+  --hidden-import uvicorn \
+  --hidden-import uvicorn.loops \
+  --hidden-import uvicorn.loops.auto \
+  --hidden-import uvicorn.protocols \
+  --hidden-import uvicorn.protocols.http \
+  --hidden-import uvicorn.protocols.http.auto \
+  --hidden-import uvicorn.protocols.utils \
+  --hidden-import sqlmodel \
+  --hidden-import pydantic \
+  --hidden-import starlette \
+  --hidden-import fastapi \
   --noconsole \
   src/timetracker/__main__.py
 ```
 
-The output is at `dist/time-tracker/time-tracker`.
+The output is at `dist/time-tracker/time-tracker` (not `build/time-tracker/` — that directory contains intermediate build files only).
 
-> **Note:** PySide6 binaries are large (~150 MB). For final distribution, combine `--onedir` with an AppImage tool.
+```bash
+./dist/time-tracker/time-tracker
+```
+
+> **Note:** PySide6 + QWebEngineView binaries are large. The final `dist/time-tracker/` directory is approximately **210 MB**.
 
 ## License
 

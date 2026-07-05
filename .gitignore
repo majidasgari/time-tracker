@@ -11,3 +11,4 @@ dashboard/node_modules/
 dist/
 *.spec
 *.pyz
+build/
