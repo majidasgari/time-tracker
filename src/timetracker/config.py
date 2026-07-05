@@ -101,21 +101,28 @@ def _toml_dumps(data: dict[str, Any], prefix: str = "") -> str:
         if isinstance(value, dict):
             lines.append(f"\n[{prefix}{key}]" if prefix else f"\n[{key}]")
             lines.append(_toml_dumps(value, prefix=f"{prefix}{key}."))
-        elif isinstance(value, list) and value and isinstance(value[0], dict):
-            for item in value:
-                section = f"{prefix}{key}" if prefix else key
-                lines.append(f"\n[[{section}]]")
-                for k, v in item.items():
-                    if isinstance(v, str):
-                        lines.append(f"{k} = {v!r}")
-                    elif isinstance(v, bool):
-                        lines.append(f"{k} = {'true' if v else 'false'}")
-                    else:
-                        lines.append(f"{k} = {v}")
+        elif isinstance(value, list):
+            if not value:
+                continue
+            if isinstance(value[0], dict):
+                for item in value:
+                    section = f"{prefix}{key}" if prefix else key
+                    lines.append(f"\n[[{section}]]")
+                    for k, v in item.items():
+                        if v is None:
+                            continue
+                        if isinstance(v, str):
+                            lines.append(f"{k} = {v!r}")
+                        elif isinstance(v, bool):
+                            lines.append(f"{k} = {'true' if v else 'false'}")
+                        else:
+                            lines.append(f"{k} = {v}")
+        elif value is None:
+            continue
         elif isinstance(value, bool):
             lines.append(f"{key} = {'true' if value else 'false'}")
         elif isinstance(value, str):
             lines.append(f"{key} = {value!r}")
-        else:
+        elif isinstance(value, (int, float)):
             lines.append(f"{key} = {value}")
     return "\n".join(lines)

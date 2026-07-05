@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from timetracker.config import save_config
+from timetracker.config import save_config, ScreenshotExclusion
 
 router = APIRouter()
 
@@ -23,11 +23,17 @@ class StorageSettings(BaseModel):
     retention_days: int
 
 
+class ExclusionRule(BaseModel):
+    process_regex: str | None = None
+    title_regex: str | None = None
+
+
 class SettingsUpdate(BaseModel):
     screenshot_interval_sec: int | None = None
     screenshot_quality: str | None = None
     screenshot_dir: str | None = None
     retention_days: int | None = None
+    screenshot_exclusions: list[ExclusionRule] | None = None
 
 
 @router.get("")
@@ -40,6 +46,10 @@ def get_config(request: Request) -> dict[str, Any]:
         "retention_days": cfg.storage.retention_days,
         "poll_interval_sec": cfg.sampling.poll_interval_sec,
         "db_path": cfg.storage.db_path,
+        "screenshot_exclusions": [
+            {"process_regex": e.process_regex, "title_regex": e.title_regex}
+            for e in cfg.screenshot_exclusions
+        ],
     }
 
 
@@ -70,6 +80,12 @@ def update_config(body: SettingsUpdate, request: Request) -> dict[str, str]:
             from fastapi import HTTPException
             raise HTTPException(400, "retention_days must be between 1 and 365")
         cfg.storage.retention_days = body.retention_days
+
+    if body.screenshot_exclusions is not None:
+        cfg.screenshot_exclusions = [
+            ScreenshotExclusion(process_regex=e.process_regex, title_regex=e.title_regex)
+            for e in body.screenshot_exclusions
+        ]
 
     from timetracker.config import DEFAULT_CONFIG_PATH
     save_config(DEFAULT_CONFIG_PATH, cfg)

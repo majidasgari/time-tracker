@@ -12,7 +12,6 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
     <div class="space-y-6">
       <h1 class="text-2xl font-bold">Settings</h1>
 
-      <!-- success / error -->
       <div *ngIf="errorMsg" class="bg-red-900/50 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-300">
         {{ errorMsg }}
         <button (click)="errorMsg = ''" class="ml-3 underline">Dismiss</button>
@@ -21,12 +20,11 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
         {{ successMsg }}
       </div>
 
-      <!-- Loading -->
       <div *ngIf="loading" class="flex justify-center py-16">
         <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
 
-      <!-- Calendar Settings -->
+      <!-- Calendar -->
       <div class="bg-gray-800 rounded-xl p-5 space-y-5">
         <h2 class="text-lg font-semibold">Calendar</h2>
         <div>
@@ -41,15 +39,12 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
               <div class="text-[10px] opacity-70 mt-0.5">{{ c.desc }}</div>
             </button>
           </div>
-          <p class="text-xs text-gray-500 mt-1.5">Controls how dates are displayed in the date picker. All other dates remain in Gregorian.</p>
         </div>
       </div>
 
       <!-- Screenshot Settings -->
       <div class="bg-gray-800 rounded-xl p-5 space-y-5">
         <h2 class="text-lg font-semibold">Screenshots</h2>
-
-        <!-- Storage directory -->
         <div>
           <label class="block text-sm text-gray-400 mb-1.5">Storage Directory</label>
           <div class="flex items-center gap-2">
@@ -61,10 +56,7 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
               Browse…
             </button>
           </div>
-          <p class="text-xs text-gray-500 mt-1">Absolute path where screenshots will be saved. Use the Browse button or edit manually.</p>
         </div>
-
-        <!-- Interval -->
         <div>
           <label class="block text-sm text-gray-400 mb-1.5">Capture Interval (seconds)</label>
           <div class="flex items-center gap-2">
@@ -72,13 +64,7 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
               class="flex-1 accent-indigo-500 h-2" />
             <span class="text-sm font-mono text-gray-300 w-16 text-right">{{ screenshotInterval }}s</span>
           </div>
-          <div class="flex justify-between text-xs text-gray-500 mt-0.5">
-            <span>1s (every second)</span>
-            <span>300s (every 5 min)</span>
-          </div>
         </div>
-
-        <!-- Quality -->
         <div>
           <label class="block text-sm text-gray-400 mb-1.5">Quality</label>
           <div class="flex gap-2">
@@ -92,8 +78,6 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
             </button>
           </div>
         </div>
-
-        <!-- Retention -->
         <div>
           <label class="block text-sm text-gray-400 mb-1.5">Retention (days)</label>
           <div class="flex items-center gap-2">
@@ -104,7 +88,43 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
         </div>
       </div>
 
-      <!-- Read-only info -->
+      <!-- Screenshot Exclusions -->
+      <div class="bg-gray-800 rounded-xl p-5 space-y-3">
+        <div class="flex items-center justify-between mb-1">
+          <div>
+            <h2 class="text-lg font-semibold">Screenshot Exclusions</h2>
+            <p class="text-xs text-gray-500 mt-0.5">No screenshots will be captured when the active window matches any pattern below.</p>
+          </div>
+          <button (click)="addExclusion()"
+            class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium transition-colors flex-shrink-0">
+            + Add Exclusion
+          </button>
+        </div>
+
+        <!-- Exclusion form (inline editing) -->
+        <div *ngFor="let e of exclusions; let i = index" class="bg-gray-700/50 rounded-lg px-4 py-3 space-y-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-gray-500 uppercase tracking-wide">Process Regex</label>
+              <input type="text" [(ngModel)]="e.process_regex" placeholder="e.g. telegram|signal"
+                class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-indigo-500 mt-0.5" />
+            </div>
+            <div>
+              <label class="text-[10px] text-gray-500 uppercase tracking-wide">Title Regex</label>
+              <input type="text" [(ngModel)]="e.title_regex" placeholder="e.g. .*(bank|paypal).*"
+                class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:border-indigo-500 mt-0.5" />
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2 pt-1">
+            <button (click)="removeExclusion(i)"
+              class="text-xs px-2.5 py-1 rounded bg-gray-600 hover:bg-red-500 text-gray-300 transition-colors">Delete</button>
+          </div>
+        </div>
+
+        <div *ngIf="exclusions.length === 0" class="text-sm text-gray-500 py-3 text-center">No exclusions defined.</div>
+      </div>
+
+      <!-- System Info -->
       <div class="bg-gray-800 rounded-xl p-5 space-y-3">
         <h2 class="text-lg font-semibold">System Info</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -115,6 +135,23 @@ import { SettingsService, CalendarType } from '../../services/settings.service';
           <div>
             <div class="text-gray-500 text-xs">Database</div>
             <div class="text-gray-300 font-mono text-xs break-all">{{ dbPath }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Purge dialog -->
+      <div *ngIf="showPurgeDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-700 space-y-4">
+          <h2 class="text-lg font-semibold">Exclusions Changed</h2>
+          <p class="text-sm text-gray-400">
+            The screenshot exclusion list has been modified. Would you like to
+            <b class="text-yellow-400">delete existing screenshots</b> that match the new exclusion patterns?
+          </p>
+          <div class="flex items-center justify-end gap-3">
+            <button (click)="finishSave(false)"
+              class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-sm transition-colors">Keep All</button>
+            <button (click)="finishSave(true)"
+              class="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-sm font-medium transition-colors">Delete Matching</button>
           </div>
         </div>
       </div>
@@ -155,6 +192,11 @@ export class SettingsComponent implements OnInit {
     { value: 'high',  label: 'High',  desc: 'Best quality' },
   ];
 
+  exclusions: { process_regex: string | null; title_regex: string | null }[] = [];
+  private origExclusions: string | null = null;
+  showPurgeDialog = false;
+  private _savedExclusions: any = null;
+
   constructor(private api: ApiService, private settings: SettingsService) {}
 
   ngOnInit() {
@@ -167,9 +209,14 @@ export class SettingsComponent implements OnInit {
         this.retentionDays      = c.retention_days;
         this.pollInterval       = c.poll_interval_sec;
         this.dbPath             = c.db_path;
+        this.exclusions = (c.screenshot_exclusions || []).map(e => ({
+          process_regex: e.process_regex ?? null,
+          title_regex: e.title_regex ?? null,
+        }));
+        this.origExclusions = JSON.stringify(this.exclusions);
         this.loading = false;
       },
-      error: (err) => {
+      error: () => {
         this.errorMsg = 'Failed to load settings';
         this.loading = false;
       },
@@ -178,11 +225,7 @@ export class SettingsComponent implements OnInit {
 
   async pickFolder() {
     this.api.pickDirectory(this.screenshotDir || '').subscribe({
-      next: (res) => {
-        if (res.path) {
-          this.screenshotDir = res.path;
-        }
-      },
+      next: (res) => { if (res.path) this.screenshotDir = res.path; },
       error: () => {},
     });
   }
@@ -192,24 +235,61 @@ export class SettingsComponent implements OnInit {
     this.settings.calendarType = type;
   }
 
+  addExclusion() {
+    this.exclusions.push({ process_regex: '', title_regex: null });
+  }
+
+  removeExclusion(i: number) {
+    this.exclusions.splice(i, 1);
+  }
+
   save() {
     this.saving = true;
     this.successMsg = '';
     this.errorMsg = '';
-    this.api.updateConfig({
+    const body: any = {
       screenshot_dir: this.screenshotDir,
       screenshot_interval_sec: this.screenshotInterval,
       screenshot_quality: this.screenshotQuality,
       retention_days: this.retentionDays,
-    }).subscribe({
+      screenshot_exclusions: this.exclusions,
+    };
+    this.api.updateConfig(body).subscribe({
       next: () => {
         this.saving = false;
-        this.successMsg = 'Settings saved. Restart to apply changes.';
+        const exclusionsChanged = this.origExclusions !== JSON.stringify(this.exclusions);
+        if (exclusionsChanged) {
+          this._savedExclusions = this.exclusions;
+          this.showPurgeDialog = true;
+        } else {
+          this.successMsg = 'Settings saved. Restart to apply changes.';
+        }
       },
       error: (err) => {
         this.saving = false;
         this.errorMsg = err?.error?.detail || 'Failed to save settings';
       },
     });
+  }
+
+  finishSave(purge: boolean) {
+    this.showPurgeDialog = false;
+    if (purge) {
+      const exclusions = this._savedExclusions.map((e: any) => ({
+        process_regex: e.process_regex || null,
+        title_regex: e.title_regex || null,
+      }));
+      this.api.purgeScreenshots(exclusions).subscribe({
+        next: (res) => {
+          this.successMsg = `Settings saved. ${res.deleted_screenshots} screenshot(s) and ${res.deleted_activities} activity/activities deleted.`;
+        },
+        error: () => {
+          this.successMsg = 'Settings saved but failed to purge.';
+        },
+      });
+    } else {
+      this.successMsg = 'Settings saved. Restart to apply changes.';
+    }
+    this._savedExclusions = null;
   }
 }

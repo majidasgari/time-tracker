@@ -1,15 +1,26 @@
 from __future__ import annotations
 
+import logging
+import os
+import re
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
+from timetracker.config import ScreenshotExclusion
 from timetracker.db.models import Screenshot
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+class PurgeRequest(BaseModel):
+    exclusions: list[dict[str, str | None]]
 
 
 def _engine(request: Request) -> Any:
@@ -24,6 +35,56 @@ def _shot_out(s: Screenshot) -> dict[str, Any]:
         "file_path": s.file_path,
         "file_size": s.file_size,
     }
+
+
+@router.post("/purge-by-exclusions")
+def purge_by_exclusions(body: PurgeRequest, request: Request) -> dict[str, Any]:
+    """Delete screenshots AND activities whose process/title match any exclusion pattern."""
+    from timetracker.db.models import Activity
+
+    engine = _engine(request)
+    deleted_shots = 0
+    deleted_acts = 0
+    act_ids: set[int] = set()
+
+    with Session(engine) as session:
+        # Find matching activities
+        acts = session.exec(select(Activity)).all()
+        matched: list[Activity] = []
+        for a in acts:
+            for exc in body.exclusions:
+                proc_pat = exc.get("process_regex")
+                title_pat = exc.get("title_regex")
+                if proc_pat and not re.search(proc_pat, a.process or "", re.IGNORECASE):
+                    continue
+                if title_pat and not re.search(title_pat, a.title or "", re.IGNORECASE):
+                    continue
+                matched.append(a)
+                act_ids.add(a.id)
+                break
+
+        # Delete screenshots for matched activities
+        if act_ids:
+            shots = session.exec(
+                select(Screenshot).where(Screenshot.activity_id.in_(act_ids))  # type: ignore[operator]
+            ).all()
+            for s in shots:
+                try:
+                    os.unlink(s.file_path)
+                except OSError:
+                    pass
+                session.delete(s)
+                deleted_shots += 1
+            session.flush()
+
+        # Delete matched activities
+        for a in matched:
+            session.delete(a)
+            deleted_acts += 1
+
+        session.commit()
+
+    return {"deleted_screenshots": deleted_shots, "deleted_activities": deleted_acts}
 
 
 @router.get("")

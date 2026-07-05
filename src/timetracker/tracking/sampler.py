@@ -39,6 +39,7 @@ class Sampler(threading.Thread):
         screenshot_interval_sec: int = 10,
         screenshot_quality: str = "low",
         screenshot_dir: str = "~/.timetracker/screenshots",
+        screenshot_exclusions: list[dict[str, str | None]] | None = None,
     ) -> None:
         super().__init__(name="Sampler", daemon=True)
         self._backend = backend
@@ -53,6 +54,7 @@ class Sampler(threading.Thread):
         self._screenshot_dir = Path(screenshot_dir).expanduser().resolve()
         self._screenshot_dir.mkdir(parents=True, exist_ok=True)
         self._last_shot = 0.0
+        self._exclusions = screenshot_exclusions or []
 
     def _get_rule_version(self, session: Session) -> int:
         meta = session.get(Meta, "rule_version")
@@ -117,6 +119,23 @@ class Sampler(threading.Thread):
             pass
         return False
 
+    def _is_excluded(self, info: Any) -> bool:
+        if not self._exclusions or info is None:
+            return False
+        import re
+        for exc in self._exclusions:
+            proc_pat = exc.get("process_regex")
+            title_pat = exc.get("title_regex")
+            if proc_pat:
+                if not re.search(proc_pat, info.process or "", re.IGNORECASE):
+                    continue
+            if title_pat:
+                if not re.search(title_pat, info.title or "", re.IGNORECASE):
+                    continue
+            logger.debug("screenshot excluded by pattern: proc=%s title=%s", proc_pat, title_pat)
+            return True
+        return False
+
     def _maybe_capture_screenshot(self, session: Session) -> None:
         now = datetime.now().timestamp()
         if now - self._last_shot < self._screenshot_interval:
@@ -124,6 +143,12 @@ class Sampler(threading.Thread):
 
         if self._is_spectacle_running():
             logger.debug("spectacle is active, skipping screenshot")
+            return
+
+        info = self._backend.get_active_window()
+        if self._is_excluded(info):
+            logger.debug("active window excluded from screenshot: %s %s",
+                         info.process if info else None, info.title if info else None)
             return
 
         self._last_shot = now

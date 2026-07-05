@@ -204,6 +204,10 @@ export class ApiService {
     return this.http.put(`${this.base}/config`, data);
   }
 
+  purgeScreenshots(exclusions: { process_regex: string | null; title_regex: string | null }[]) {
+    return this.http.post<{ deleted_screenshots: number; deleted_activities: number }>(`${this.base}/screenshots/purge-by-exclusions`, { exclusions });
+  }
+
   pickDirectory(current: string) {
     return this.http.get<{ path: string }>(`${this.base}/config/pick-dir`, {
       params: { current },
@@ -256,6 +260,7 @@ export interface AppConfig {
   retention_days: number;
   poll_interval_sec: number;
   db_path: string;
+  screenshot_exclusions?: { process_regex: string | null; title_regex: string | null }[];
 }
 
 export interface ScreenshotInfo {

@@ -134,6 +134,7 @@ class TrayApp:
             screenshot_interval_sec=cfg.sampling.screenshot_interval_sec,
             screenshot_quality=cfg.sampling.screenshot_quality,
             screenshot_dir=cfg.storage.screenshot_dir,
+            screenshot_exclusions=[e.model_dump() for e in cfg.screenshot_exclusions],
         )
 
         # --- API server thread -----------------------------------------
