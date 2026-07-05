@@ -58,6 +58,18 @@ def _open_dashboard(port: int) -> None:
     webbrowser.open(f"http://127.0.0.1:{port}")
 
 
+def get_asset_path(filename: str) -> Any:
+    from pathlib import Path
+    import sys
+    if getattr(sys, "frozen", False):
+        base = Path(sys._MEIPASS)
+        p = base / "assets" / filename
+        if p.exists():
+            return p
+    root = Path(__file__).resolve().parents[3]
+    return root / "assets" / filename
+
+
 class TrayApp:
     """System tray application that owns the Sampler + API lifecycle."""
 
@@ -85,10 +97,14 @@ class TrayApp:
         )
         self._app.setQuitOnLastWindowClosed(False)
 
-        icon = QIcon(_create_tray_icon())
+        logo_path = get_asset_path("logo.png")
+        if logo_path.exists():
+            icon = QIcon(str(logo_path))
+        else:
+            icon = QIcon(_create_tray_icon())
 
         self._tray = QSystemTrayIcon(icon)
-        self._tray.setToolTip("Time Tracker — active")
+        self._tray.setToolTip("Chrysalis Time Tracker — active")
 
         menu = QMenu()
         self._act_open = QAction("Open Dashboard", menu)
@@ -186,7 +202,7 @@ class TrayApp:
             self._stop_event.set()
             self._sampler.join(timeout=5)
             self._act_toggle.setText("Resume Tracking")
-            self._tray.setToolTip("Time Tracker — paused")
+            self._tray.setToolTip("Chrysalis Time Tracker — paused")
         else:
             from timetracker.platform.factory import get_backend
             from timetracker.tracking.categorizer import Categorizer
@@ -208,7 +224,7 @@ class TrayApp:
             )
             self._sampler.start()
             self._act_toggle.setText("Pause Tracking")
-            self._tray.setToolTip("Time Tracker — active")
+            self._tray.setToolTip("Chrysalis Time Tracker — active")
         self._tracking = not self._tracking
 
     def _set_manual_job(self) -> None:
@@ -262,7 +278,7 @@ class TrayApp:
             session.commit()
 
         self._act_clear_job.setVisible(True)
-        self._tray.setToolTip(f"Time Tracker — job: {name}")
+        self._tray.setToolTip(f"Chrysalis Time Tracker — job: {name}")
         logger.info("manual job set: %s", name)
 
     def _clear_manual_job(self) -> None:
@@ -278,7 +294,7 @@ class TrayApp:
             session.commit()
 
         self._act_clear_job.setVisible(False)
-        self._tray.setToolTip("Time Tracker — active")
+        self._tray.setToolTip("Chrysalis Time Tracker — active")
         logger.info("manual job cleared")
 
     def _on_activated(self, reason: int) -> None:

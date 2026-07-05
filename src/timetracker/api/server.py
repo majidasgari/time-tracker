@@ -65,7 +65,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Time Tracker", lifespan=lifespan)
+app = FastAPI(title="Chrysalis Time Tracker", lifespan=lifespan)
 app.include_router(categories_router, prefix="/api/categories")
 app.include_router(config_router, prefix="/api/config")
 app.include_router(jobs_router, prefix="/api/jobs")
@@ -310,7 +310,7 @@ if dist_dir and dist_dir.exists():
 def run_server(host: str = "127.0.0.1", port: int = 8080) -> None:
     import uvicorn
 
-    print(f"  Time Tracker API → http://{host}:{port}", flush=True)
+    print(f"  Chrysalis Time Tracker API → http://{host}:{port}", flush=True)
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 

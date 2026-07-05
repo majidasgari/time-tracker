@@ -1,4 +1,4 @@
-# Implementation Plan — Time Tracker
+# Implementation Plan — Chrysalis Time Tracker
 
 > **Document Status:** Draft v1.0 · Last Updated: 2026-07-04
 > **Reference:** `docs/SPECIFICATION.md` for the complete specification. This document describes **how** to implement it.

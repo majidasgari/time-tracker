@@ -11,16 +11,14 @@ import { CommonModule } from '@angular/common';
 
       <div class="bg-gray-800 rounded-xl p-6 space-y-5">
         <div class="flex items-center gap-4">
-          <div class="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center text-2xl">
-            ⏱️
-          </div>
+          <img src="colorized-logo.png" alt="Chrysalis Logo" class="w-16 h-16 rounded-xl object-contain bg-gray-900 p-1.5" />
           <div>
-            <h2 class="text-xl font-bold text-white">Time Tracker</h2>
+            <h2 class="text-xl font-bold text-white">Chrysalis Time Tracker</h2>
             <p class="text-sm text-gray-400">v0.1.0</p>
           </div>
         </div>
         <p class="text-sm text-gray-300 leading-relaxed">
-          Cross-platform desktop time tracker with regex categorization,
+          Cross-platform desktop Chrysalis Time Tracker with regex categorization,
           periodic screenshots, and dual Gregorian/Jalali calendar support.
         </p>
       </div>

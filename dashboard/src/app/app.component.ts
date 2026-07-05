@@ -9,7 +9,10 @@ import { CommonModule } from '@angular/common';
   template: `
     <div class="flex h-screen bg-gray-900 text-gray-100">
       <nav class="w-56 bg-gray-950 p-4 flex flex-col gap-2">
-        <h1 class="text-lg font-bold mb-4 px-3 text-blue-400">Time Tracker</h1>
+        <div class="flex items-center gap-2.5 mb-4 px-3">
+          <img src="colorized-logo.png" alt="Chrysalis Logo" class="w-8 h-8 rounded object-contain" />
+          <h1 class="text-base font-bold text-blue-400 leading-tight">Chrysalis<br/>Time Tracker</h1>
+        </div>
         <a routerLink="/overview" routerLinkActive="bg-gray-800 text-white" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 transition">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7"/>

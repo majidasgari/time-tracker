@@ -1,4 +1,8 @@
-# Time Tracker
+# Chrysalis Time Tracker
+
+<p align="center">
+  <img src="assets/colorized-logo.png" alt="Chrysalis Time Tracker Logo" width="150" />
+</p>
 
 A cross-platform desktop time tracker (Windows + Linux KDE) that records and categorizes user activity using an event-based approach. All data is stored **entirely locally** (SQLite) — no data is ever sent over the network.
 

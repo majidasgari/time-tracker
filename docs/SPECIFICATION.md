@@ -1,4 +1,4 @@
-# Project Specification — Time Tracker
+# Project Specification — Chrysalis Time Tracker
 
 > **Document Status:** Draft v1.0 · Last Updated: 2026-07-04
 
