@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild } fr
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, CategoryOut, TimelineActivity, JobOut, ScreenshotInfo } from '../../services/api.service';
+import { DateTimeInputComponent } from '../../shared/date-input.component';
 import { Subject, takeUntil } from 'rxjs';
 
 const ROW_H = 64;
@@ -25,7 +26,7 @@ const ROW_KEYS: Array<keyof Pick<TimelineActivity, 'process' | 'title' | 'catego
 @Component({
   selector: 'app-timeline',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DateTimeInputComponent],
   template: `
     <div class="space-y-4">
       <div class="flex items-center justify-between">
@@ -36,13 +37,15 @@ const ROW_KEYS: Array<keyof Pick<TimelineActivity, 'process' | 'title' | 'catego
       <div class="bg-gray-800 rounded-xl p-4 flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-2">
           <span class="text-gray-400 text-sm">From</span>
-          <input type="datetime-local" [(ngModel)]="fromInput" (ngModelChange)="onRangeChange()"
-            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"/>
+          <app-datetime-input [(ngModel)]="fromInput" (ngModelChange)="onRangeChange()"
+            placeholder="From..."
+          />
         </div>
         <div class="flex items-center gap-2">
           <span class="text-gray-400 text-sm">To</span>
-          <input type="datetime-local" [(ngModel)]="toInput" (ngModelChange)="onRangeChange()"
-            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"/>
+          <app-datetime-input [(ngModel)]="toInput" (ngModelChange)="onRangeChange()"
+            placeholder="To..."
+          />
         </div>
         <span class="text-gray-600 mx-1">|</span>
         <button *ngFor="let p of presets" (click)="applyPreset(p.minutes)"

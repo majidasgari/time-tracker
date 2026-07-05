@@ -4,12 +4,13 @@ import { FormsModule } from '@angular/forms';
 import {
   ApiService, CategoryOut, CategoryIn, RuleOut, RuleIn,
 } from '../../services/api.service';
+import { DateTimeInputComponent } from '../../shared/date-input.component';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-categories',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DateTimeInputComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -107,8 +108,9 @@ import { Subject, takeUntil } from 'rxjs';
 
               <div *ngIf="ruleRecompute" class="mt-3 ml-6">
                 <label class="block text-xs text-gray-400 mb-1">From date</label>
-                <input type="datetime-local" [(ngModel)]="ruleRecomputeFrom"
-                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500" />
+                <app-datetime-input [(ngModel)]="ruleRecomputeFrom"
+                  placeholder="From date..."
+                />
                 <p class="text-xs text-gray-500 mt-1">
                   Only activities recorded on or after this date will be re-categorized. Leave empty to process all history.
                 </p>

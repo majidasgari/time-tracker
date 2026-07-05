@@ -9,6 +9,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { ApiService, AccumulatedItem, CategoryOut } from '../../services/api.service';
+import { DateTimeInputComponent } from '../../shared/date-input.component';
 import { Subject, forkJoin, takeUntil, debounceTime } from 'rxjs';
 
 echarts.use([PieChart, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
@@ -93,7 +94,7 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
 @Component({
   selector: 'app-charts',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgxEchartsDirective],
+  imports: [CommonModule, FormsModule, NgxEchartsDirective, DateTimeInputComponent],
   providers: [provideEchartsCore({ echarts })],
   template: `
     <div class="space-y-6">
@@ -113,13 +114,15 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
 
         <div class="flex items-center gap-2 ml-auto flex-wrap">
           <span class="text-gray-400 text-sm">From</span>
-          <input type="datetime-local" [(ngModel)]="fromInput"
+          <app-datetime-input [(ngModel)]="fromInput"
             (ngModelChange)="onCustomRange()"
-            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"/>
+            placeholder="From..."
+          />
           <span class="text-gray-400 text-sm">To</span>
-          <input type="datetime-local" [(ngModel)]="toInput"
+          <app-datetime-input [(ngModel)]="toInput"
             (ngModelChange)="onCustomRange()"
-            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500"/>
+            placeholder="To..."
+          />
         </div>
 
         <!-- Text filters -->

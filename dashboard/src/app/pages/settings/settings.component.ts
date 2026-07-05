@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, AppConfig } from '../../services/api.service';
+import { SettingsService, CalendarType } from '../../services/settings.service';
 
 @Component({
   selector: 'app-settings',
@@ -23,6 +24,25 @@ import { ApiService, AppConfig } from '../../services/api.service';
       <!-- Loading -->
       <div *ngIf="loading" class="flex justify-center py-16">
         <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+
+      <!-- Calendar Settings -->
+      <div class="bg-gray-800 rounded-xl p-5 space-y-5">
+        <h2 class="text-lg font-semibold">Calendar</h2>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1.5">Calendar Type</label>
+          <div class="flex gap-2">
+            <button *ngFor="let c of calendarOptions" (click)="setCalendarType(c.value)"
+              [class]="'flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ' +
+                (calendarType === c.value
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600')">
+              <div>{{ c.label }}</div>
+              <div class="text-[10px] opacity-70 mt-0.5">{{ c.desc }}</div>
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mt-1.5">Controls how dates are displayed in the date picker. All other dates remain in Gregorian.</p>
+        </div>
       </div>
 
       <!-- Screenshot Settings -->
@@ -116,6 +136,12 @@ export class SettingsComponent implements OnInit {
   errorMsg = '';
   successMsg = '';
 
+  calendarType: CalendarType = 'gregorian';
+  calendarOptions = [
+    { value: 'gregorian' as CalendarType, label: 'Gregorian', desc: 'Miladi calendar' },
+    { value: 'jalali' as CalendarType, label: 'Jalali', desc: 'Shamsi / Persian calendar' },
+  ];
+
   screenshotDir = '';
   screenshotInterval = 10;
   screenshotQuality = 'low';
@@ -129,9 +155,10 @@ export class SettingsComponent implements OnInit {
     { value: 'high',  label: 'High',  desc: 'Best quality' },
   ];
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private settings: SettingsService) {}
 
   ngOnInit() {
+    this.calendarType = this.settings.calendarType;
     this.api.getConfig().subscribe({
       next: (c) => {
         this.screenshotDir      = c.screenshot_dir;
@@ -158,6 +185,11 @@ export class SettingsComponent implements OnInit {
       },
       error: () => {},
     });
+  }
+
+  setCalendarType(type: CalendarType) {
+    this.calendarType = type;
+    this.settings.calendarType = type;
   }
 
   save() {

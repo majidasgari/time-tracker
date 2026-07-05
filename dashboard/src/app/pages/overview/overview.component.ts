@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, ActivityFilter, BreakdownItem, Status, CategoryOut, JobOut } from '../../services/api.service';
+import { DateTimeInputComponent } from '../../shared/date-input.component';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
 
 const PAGE_SIZE = 25;
@@ -9,7 +10,7 @@ const PAGE_SIZE = 25;
 @Component({
   selector: 'app-overview',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DateTimeInputComponent],
   template: `
     <div class="space-y-6">
       <h1 class="text-2xl font-bold">Overview</h1>
@@ -112,19 +113,17 @@ const PAGE_SIZE = 25;
             (ngModelChange)="onFilterChange()"
             class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
           />
-          <input
+          <app-datetime-input
             id="filter-from"
-            type="datetime-local"
             [(ngModel)]="filterFrom"
             (ngModelChange)="onFilterChange()"
-            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+            placeholder="From..."
           />
-          <input
+          <app-datetime-input
             id="filter-to"
-            type="datetime-local"
             [(ngModel)]="filterTo"
             (ngModelChange)="onFilterChange()"
-            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500"
+            placeholder="To..."
           />
         </div>
 
