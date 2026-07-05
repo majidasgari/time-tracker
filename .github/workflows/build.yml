@@ -1,0 +1,216 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libdbus-1-dev libegl1 libxkbcommon0
+
+      - name: Install Python deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -U pip
+          .venv/bin/pip install -e ".[dev,wayland]"
+
+      - name: Build Angular dashboard
+        run: |
+          cd dashboard
+          npm ci
+          npm run build -- --output-path ../dashboard/dist/dashboard --configuration production
+          cd ..
+
+      - name: Build executable
+        run: |
+          .venv/bin/pyinstaller \
+            --name=time-tracker \
+            --onedir \
+            --add-data "dashboard/dist/dashboard/browser:dashboard/dist/dashboard/browser" \
+            --hidden-import timetracker.config \
+            --hidden-import timetracker.db.models \
+            --hidden-import timetracker.db.migrations \
+            --hidden-import timetracker.db.session \
+            --hidden-import timetracker.api.server \
+            --hidden-import timetracker.api.routes.categories \
+            --hidden-import timetracker.api.routes.config \
+            --hidden-import timetracker.api.routes.jobs \
+            --hidden-import timetracker.api.routes.screenshots \
+            --hidden-import timetracker.api.routes.tracking \
+            --hidden-import timetracker.api.routes.stats \
+            --hidden-import timetracker.platform.base \
+            --hidden-import timetracker.platform.factory \
+            --hidden-import timetracker.platform.linux_x11 \
+            --hidden-import timetracker.platform.linux_wayland \
+            --hidden-import timetracker.screenshots.capture \
+            --hidden-import timetracker.tracking.categorizer \
+            --hidden-import timetracker.tracking.recompute \
+            --hidden-import timetracker.tracking.sampler \
+            --hidden-import timetracker.ui.tray \
+            --hidden-import psutil \
+            --hidden-import PIL \
+            --hidden-import PIL.Image \
+            --hidden-import mss \
+            --hidden-import regex \
+            --hidden-import uvicorn \
+            --hidden-import uvicorn.loops \
+            --hidden-import uvicorn.loops.auto \
+            --hidden-import uvicorn.protocols \
+            --hidden-import uvicorn.protocols.http \
+            --hidden-import uvicorn.protocols.http.auto \
+            --hidden-import uvicorn.protocols.utils \
+            --hidden-import sqlmodel \
+            --hidden-import pydantic \
+            --hidden-import starlette \
+            --hidden-import fastapi \
+            --noconsole \
+            src/timetracker/__main__.py
+
+      - name: Package
+        run: |
+          mkdir -p artifacts
+          cd dist
+          tar czf ../artifacts/time-tracker-linux-x86_64.tar.gz time-tracker/
+          cd ..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: artifacts/time-tracker-linux-x86_64.tar.gz
+
+  build-windows:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install Python deps
+        run: |
+          python -m venv .venv
+          .venv\Scripts\pip install -U pip
+          .venv\Scripts\pip install -e ".[dev,win32]"
+
+      - name: Build Angular dashboard
+        run: |
+          cd dashboard
+          npm ci
+          npm run build -- --output-path ../dashboard/dist/dashboard --configuration production
+          cd ..
+
+      - name: Build executable
+        run: |
+          .venv\Scripts\pyinstaller `
+            --name=time-tracker `
+            --onedir `
+            --add-data "dashboard/dist/dashboard/browser;dashboard/dist/dashboard/browser" `
+            --hidden-import timetracker.config `
+            --hidden-import timetracker.db.models `
+            --hidden-import timetracker.db.migrations `
+            --hidden-import timetracker.db.session `
+            --hidden-import timetracker.api.server `
+            --hidden-import timetracker.api.routes.categories `
+            --hidden-import timetracker.api.routes.config `
+            --hidden-import timetracker.api.routes.jobs `
+            --hidden-import timetracker.api.routes.screenshots `
+            --hidden-import timetracker.api.routes.tracking `
+            --hidden-import timetracker.api.routes.stats `
+            --hidden-import timetracker.platform.base `
+            --hidden-import timetracker.platform.factory `
+            --hidden-import timetracker.platform.windows `
+            --hidden-import timetracker.screenshots.capture `
+            --hidden-import timetracker.tracking.categorizer `
+            --hidden-import timetracker.tracking.recompute `
+            --hidden-import timetracker.tracking.sampler `
+            --hidden-import timetracker.ui.tray `
+            --hidden-import psutil `
+            --hidden-import PIL `
+            --hidden-import PIL.Image `
+            --hidden-import mss `
+            --hidden-import regex `
+            --hidden-import uvicorn `
+            --hidden-import uvicorn.loops `
+            --hidden-import uvicorn.loops.auto `
+            --hidden-import uvicorn.protocols `
+            --hidden-import uvicorn.protocols.http `
+            --hidden-import uvicorn.protocols.http.auto `
+            --hidden-import uvicorn.protocols.utils `
+            --hidden-import sqlmodel `
+            --hidden-import pydantic `
+            --hidden-import starlette `
+            --hidden-import fastapi `
+            --hidden-import PySide6 `
+            --hidden-import PySide6.QtCore `
+            --hidden-import PySide6.QtGui `
+            --hidden-import PySide6.QtWidgets `
+            --noconsole `
+            src/timetracker/__main__.py
+
+      - name: Package
+        run: |
+          mkdir artifacts -Force
+          Compress-Archive -Path dist/time-tracker -DestinationPath artifacts/time-tracker-windows-x86_64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x86_64
+          path: artifacts/time-tracker-windows-x86_64.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Time Tracker ${{ github.ref_name }}
+          body: |
+            ## Time Tracker ${{ github.ref_name }}
+
+            ### Downloads
+            - [Linux (x86_64)](./linux-x86_64/time-tracker-linux-x86_64.tar.gz)
+            - [Windows (x86_64)](./windows-x86_64/time-tracker-windows-x86_64.zip)
+
+            ### What's Changed
+            See the [commit log](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for details.
+          files: |
+            linux-x86_64/time-tracker-linux-x86_64.tar.gz
+            windows-x86_64/time-tracker-windows-x86_64.zip
+          generate_release_notes: true
