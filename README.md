@@ -24,11 +24,26 @@ A cross-platform desktop time tracker (Windows + Linux KDE) that records and cat
 - **Preview:** screenshot gallery in the dashboard with full-size lightbox
 
 ### Integrated Dashboard (Angular)
+
 - **Overview:** activity table with filters (process, category, title, date range) + category time breakdown + pagination
+  ![Overview](docs/images/overview.png)
+
 - **Charts:** Pie/Donut charts by category/process/title — preset ranges: Today / This Week / This Month / Custom
+  ![Charts](docs/images/charts.png)
+
 - **Timeline:** Gantt-like visual display with 4 rows (process, title, category, job) — scroll-to-zoom, drag-to-pan, range selection, marker with details and screenshot
+  ![Timeline](docs/images/timeline.png)
+
 - **Screenshots:** gallery with date range filter and full-size preview
+  ![Screenshots](docs/images/screenshots.png)
+
 - **Categories:** full CRUD for categories and rules + recompute on rule change
+  ![Categories](docs/images/categories.png)
+
+- **Settings:** configure calendar type (Gregorian/Jalali), screenshot storage, capture interval, quality, retention days, window exclusions, and system info
+  ![Settings](docs/images/settings.png)
+
+
 
 ### Dual Calendar Support
 - **Dual date picker:** supports both Gregorian and Jalali (Persian Solar Hijri) calendars
