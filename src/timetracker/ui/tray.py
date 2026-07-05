@@ -188,6 +188,7 @@ class TrayApp:
             port=self._port,
             log_level="warning",
             access_log=False,
+            log_config=None,
         )
         self._uvicorn_server = uvicorn.Server(config)
         self._server_thread = threading.Thread(

@@ -9,11 +9,12 @@ from timetracker.config import ensure_config
 from timetracker.db.migrations import run_migrations, seed_rules_from_config
 from timetracker.db.session import create_engine_from_path
 
+_stream = sys.stderr if sys.stderr is not None else sys.stdout
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
     datefmt="%H:%M:%S",
-    stream=sys.stderr,
+    stream=_stream,
 )
 
 

@@ -72,21 +72,21 @@ A cross-platform desktop time tracker (Windows + Linux KDE) that records and cat
 - **No telemetry:** no data is collected or transmitted
 
 ### Cross-Platform
-| Platform | Window Detection | Screenshot |
-|---|---|---|
-| Windows 10/11 | Win32 API (ctypes) | mss / BitBlt |
-| Linux X11 | python-xlib | mss |
-| Linux Wayland (KDE) | DBus → KWin | spectacle --background |
+| Platform            | Window Detection   | Screenshot             |
+| ------------------- | ------------------ | ---------------------- |
+| Windows 10/11       | Win32 API (ctypes) | mss / BitBlt           |
+| Linux X11           | python-xlib        | mss                    |
+| Linux Wayland (KDE) | DBus → KWin        | spectacle --background |
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | Python 3.11+ / PySide6 / FastAPI / SQLModel (SQLite WAL) |
-| Dashboard | Angular 19 / ECharts / TailwindCSS |
-| Platform | ctypes (Windows) / python-xlib (X11) / DBus → KWin (Wayland) |
-| Screenshots | mss / Pillow / spectacle / grim |
-| Date Picker | asa-date-picker (Gregorian + Jalali) |
+| Layer       | Technology                                                   |
+| ----------- | ------------------------------------------------------------ |
+| Backend     | Python 3.11+ / PySide6 / FastAPI / SQLModel (SQLite WAL)     |
+| Dashboard   | Angular 19 / ECharts / TailwindCSS                           |
+| Platform    | ctypes (Windows) / python-xlib (X11) / DBus → KWin (Wayland) |
+| Screenshots | mss / Pillow / spectacle / grim                              |
+| Date Picker | asa-date-picker (Gregorian + Jalali)                         |
 
 ## Project Structure
 
@@ -113,6 +113,8 @@ A cross-platform desktop time tracker (Windows + Linux KDE) that records and cat
 
 ## Getting Started (from source)
 
+### Linux / macOS
+
 ```bash
 # Clone
 git clone https://github.com/majidasgari/time-tracker
@@ -126,11 +128,10 @@ pip install -e ".[dev]"
 # Platform-specific dependency (install only one)
 pip install -e ".[x11]"        # Linux X11
 pip install -e ".[wayland]"    # Linux KDE Wayland
-pip install -e ".[win32]"      # Windows
 
 # Angular dashboard
 cd dashboard
-npm install
+npm install --legacy-peer-deps
 npm run build
 cd ..
 
@@ -138,11 +139,35 @@ cd ..
 python -m timetracker
 ```
 
+### Windows
+
+```powershell
+# Clone
+git clone https://github.com/majidasgari/time-tracker
+cd time-tracker
+
+# Python virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev,win32]"
+
+# Angular dashboard
+cd dashboard
+npm install --legacy-peer-deps
+npm run build
+cd ..
+
+# Run
+.venv\Scripts\python.exe -m timetracker
+```
+
 The dashboard is available at `http://127.0.0.1:8080` and opens in the default browser. Double-click the system tray icon to reopen it.
 
-## Building a Linux Executable
+## Building an Executable with PyInstaller
 
-### Prerequisites
+### Linux
+
+#### Prerequisites
 
 ```bash
 # System packages (Ubuntu/Debian)
@@ -154,7 +179,7 @@ source .venv/bin/activate
 pip install -e ".[dev,wayland]"    # or .[dev,x11] for X11
 ```
 
-### Step 1: Build the Angular dashboard
+#### Step 1: Build the Angular dashboard
 
 ```bash
 cd dashboard
@@ -163,7 +188,7 @@ npm run build
 cd ..
 ```
 
-### Step 2: Build with PyInstaller
+#### Step 2: Build with PyInstaller
 
 ```bash
 pyinstaller \
@@ -216,7 +241,83 @@ The output is at `dist/time-tracker/time-tracker` (not `build/time-tracker/` —
 ./dist/time-tracker/time-tracker
 ```
 
-> **Note:** PySide6 + QWebEngineView binaries are large. The final `dist/time-tracker/` directory is approximately **210 MB**.
+### Windows
+
+#### Prerequisites
+
+```powershell
+# Python virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev,win32]"
+```
+
+#### Step 1: Build the Angular dashboard
+
+```powershell
+cd dashboard
+npm install --legacy-peer-deps
+npm run build
+cd ..
+```
+
+#### Step 2: Build with PyInstaller
+
+```powershell
+pyinstaller ^
+  --name=time-tracker ^
+  --onedir ^
+  --add-data "dashboard/dist/dashboard/browser;dashboard/dist/dashboard/browser" ^
+  --add-data "assets;assets" ^
+  --hidden-import timetracker.config ^
+  --hidden-import timetracker.db.models ^
+  --hidden-import timetracker.db.migrations ^
+  --hidden-import timetracker.db.session ^
+  --hidden-import timetracker.api.server ^
+  --hidden-import timetracker.api.routes.categories ^
+  --hidden-import timetracker.api.routes.config ^
+  --hidden-import timetracker.api.routes.jobs ^
+  --hidden-import timetracker.api.routes.screenshots ^
+  --hidden-import timetracker.api.routes.tracking ^
+  --hidden-import timetracker.api.routes.stats ^
+  --hidden-import timetracker.platform.base ^
+  --hidden-import timetracker.platform.factory ^
+  --hidden-import timetracker.platform.windows ^
+  --hidden-import timetracker.screenshots.capture ^
+  --hidden-import timetracker.tracking.categorizer ^
+  --hidden-import timetracker.tracking.recompute ^
+  --hidden-import timetracker.tracking.sampler ^
+  --hidden-import timetracker.ui.tray ^
+  --hidden-import win32gui ^
+  --hidden-import win32process ^
+  --hidden-import pywin32 ^
+  --hidden-import psutil ^
+  --hidden-import PIL ^
+  --hidden-import PIL.Image ^
+  --hidden-import mss ^
+  --hidden-import regex ^
+  --hidden-import uvicorn ^
+  --hidden-import uvicorn.loops ^
+  --hidden-import uvicorn.loops.auto ^
+  --hidden-import uvicorn.protocols ^
+  --hidden-import uvicorn.protocols.http ^
+  --hidden-import uvicorn.protocols.http.auto ^
+  --hidden-import uvicorn.protocols.utils ^
+  --hidden-import sqlmodel ^
+  --hidden-import pydantic ^
+  --hidden-import starlette ^
+  --hidden-import fastapi ^
+  --noconsole ^
+  src/timetracker/__main__.py
+```
+
+The output is at `dist/time-tracker/time-tracker.exe`.
+
+```powershell
+.\dist\time-tracker\time-tracker.exe
+```
+
+> **Note:** PySide6 binaries are large. The final `dist/time-tracker/` directory is approximately **210 MB** on Linux and **250 MB** on Windows.
 
 ## License
 
