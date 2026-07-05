@@ -1,171 +1,170 @@
 # Implementation Plan — Time Tracker
 
-> **وضعیت سند:** Draft v1.0 · آخرین به‌روزرسانی: ۲۰۲۶-۰۷-۰۴
-> **مرجع:** `docs/SPECIFICATION.md` برای مشخصات کامل. این سند برنامه‌ی **چگونگی** پیاده‌سازی است.
-> زبان: فارسی (اصلی)؛ اصطلاحات فنی به انگلیسی.
+> **Document Status:** Draft v1.0 · Last Updated: 2026-07-04
+> **Reference:** `docs/SPECIFICATION.md` for the complete specification. This document describes **how** to implement it.
 
 ---
 
-## ۰. اصول راهنما (Guiding Principles)
+## 0. Guiding Principles
 
-- **سیلانی (Incremental):** هر فاز به‌صورت مستقل قابل تست است و ارزش قابل نمایشی دارد.
-- **MVP اول:** قبل از UI گرافیکی، موتور پشت‌صحنه (tracking + categorization) کامل و تست‌پذیر باشد.
-- **پلتفرم-آگنوستیک اول:** ابتدا اینترفیس واحد، بعد بک‌اند‌های پلتفرم-خاص.
-- **تست در هر فاز:** هر فاز با unit/integration test‌های معنی‌دار تحویل شود.
-- **مرجع یکپارچه:** SPECIFICATION.md «چه» و این سند «چگونه» است. در صورت تناقض، SPECIFICATION ملاک است.
+- **Incremental:** Each phase is independently testable and has demonstrable value.
+- **MVP First:** The backend engine (tracking + categorization) must be complete and testable before any graphical UI.
+- **Platform-agnostic first:** Design a unified interface first, then implement platform-specific backends.
+- **Test every phase:** Each phase must be delivered with meaningful unit/integration tests.
+- **Single source of truth:** SPECIFICATION.md defines "what", this document defines "how". If they conflict, SPECIFICATION takes precedence.
 
 ---
 
-## ۱. نقشه‌ی فازها (Phase Roadmap)
+## 1. Phase Roadmap
 
-| فاز | نام | خروجی قابل‌مشاهده | وابسته به |
+| Phase | Name | Observable Output | Depends On |
 |---|---|---|---|
-| ۰ | راه‌اندازی پروژه | ساختار پوشه + `pyproject.toml` + lint/test سبز | — |
-| ۱ | Config + DB | کانفیگ بارگذاری می‌شود + schema SQLite ساخته می‌شود | ۰ |
-| ۲ | لایه‌ی پلتفرم | `get_active_window()` روی ویندوز/X11 کار می‌کند | ۰ |
-| ۳ | Sampler + Categorizer | فعالیت‌ها در DB ثبت می‌شوند (**MVP پشت‌صحنه**) | ۱، ۲ |
-| ۴ | اسکرین‌شات + Retention | عکس‌ها روی دیسک ذخیره می‌شوند | ۲، ۳ |
-| ۵ | FastAPI | API از داده‌ی واقعی نمودار می‌دهد (curl قابل بررسی) | ۳ |
-| ۶ | Recompute Worker | تغییر rule → باز‌دسته‌بندی کل تاریخ | ۳ |
-| ۷ | Angular داشبورد | داشبورد در مرورگر کار می‌کند | ۵ |
-| ۸ | Qt UI + یکپارچه‌سازی | اپ کامل از tray تا داشبورد | ۳، ۴، ۵، ۶، ۷ |
-| ۹ | بسته‌بندی | executable ویندوز + لینوکس | ۸ |
+| 0 | Project Setup | Folder structure + `pyproject.toml` + green lint/test | — |
+| 1 | Config + DB | Config loads + SQLite schema created | 0 |
+| 2 | Platform Layer | `get_active_window()` works on Windows/X11 | 0 |
+| 3 | Sampler + Categorizer | Activities are recorded in DB (**Backend MVP**) | 1, 2 |
+| 4 | Screenshot + Retention | Images saved to disk | 2, 3 |
+| 5 | FastAPI | API returns chart data from real data (curl-verifiable) | 3 |
+| 6 | Recompute Worker | Rule change → entire history re-categorized | 3 |
+| 7 | Angular Dashboard | Dashboard works in browser | 5 |
+| 8 | Qt UI + Integration | Full app from tray to dashboard | 3, 4, 5, 6, 7 |
+| 9 | Packaging | Windows + Linux executables | 8 |
 
-### نقاط تأیید (Milestones)
-- 🎯 **M1 (پس از فاز ۳):** خط فرمان می‌تواند activities را در DB ثبت کند (بدون UI).
-- 🎯 **M2 (پس از فاز ۵):** API داده‌ی واقعی را در قالب JSON نمودار برمی‌گرداند.
-- 🎯 **M3 (پس از فاز ۸):** اپ کامل از tray تا داشبورد کار می‌کند.
+### Milestones
+- **M1 (after Phase 3):** Command line can record activities in DB (no UI).
+- **M2 (after Phase 5):** API returns real data in JSON chart format.
+- **M3 (after Phase 8):** Full app works from tray to dashboard.
 
 ---
 
-## فاز ۰ — راه‌اندازی پروژه
+## Phase 0 — Project Setup
 
-### اهداف
-ساخت اسکلت پروژه با تمام ابزارهای توسعه‌ی آماده.
+### Objectives
+Build the project skeleton with all development tools ready.
 
-### وظایف
-1. ساخت ساختار پوشه‌ها طبق SPECIFICATION بخش ۹.
-2. ایجاد `pyproject.toml` با:
-   - متادیتای پروژه (نام، نسخه، Python ≥3.11).
-   - وابستگی‌های اصلی (از SPECIFICATION بخش ۱۰).
-   - وابستگی‌های dev: `pytest`, `pytest-asyncio`, `ruff`, `black`, `mypy`, `pyinstaller`.
-   - اختیاری‌های پلتفرم-خاص (python-xlib, pywin32, dbus-python) با markers مناسب.
-   - configهای `ruff`, `black`, `mypy` در همان فایل.
-3. ایجاد `config.example.toml` (طبق SPECIFICATION بخش ۶).
-4. ایجاد `src/timetracker/__init__.py` و بقیه‌ی `__init__.py`‌ها.
-5. ایجاد `tests/__init__.py` و یک تست نمونه (smoke test).
-6. ایجاد `.gitignore` (شامل `__pycache__/`, `.venv/`, `*.db`, `screenshots/`, `dashboard/dist/`, `dashboard/node_modules/`).
+### Tasks
+1. Create folder structure per SPECIFICATION section 9.
+2. Create `pyproject.toml` with:
+   - Project metadata (name, version, Python ≥3.11).
+   - Core dependencies (from SPECIFICATION section 10).
+   - Dev dependencies: `pytest`, `pytest-asyncio`, `ruff`, `black`, `mypy`, `pyinstaller`.
+   - Platform-specific optional deps (python-xlib, pywin32, dbus-python) with appropriate markers.
+   - `ruff`, `black`, `mypy` configs in the same file.
+3. Create `config.example.toml` (per SPECIFICATION section 6).
+4. Create `src/timetracker/__init__.py` and other `__init__.py` files.
+5. Create `tests/__init__.py` and a sample test (smoke test).
+6. Create `.gitignore` (including `__pycache__/`, `.venv/`, `*.db`, `screenshots/`, `dashboard/dist/`, `dashboard/node_modules/`).
 
-### خروجی‌ها (Deliverables)
-- `pyproject.toml` کامل.
+### Deliverables
+- Complete `pyproject.toml`.
 - `config.example.toml`.
-- ساختار پوشه‌ی خالی با `__init__.py`‌ها.
-- `ruff check .` و `pytest` بدون خطا (با تست دودی).
+- Empty folder structure with `__init__.py` files.
+- `ruff check .` and `pytest` pass cleanly (with smoke test).
 
-### معیار تأیید (DoD)
-- `pip install -e ".[dev]"` بدون خطا.
-- `pytest` سبز.
-- `ruff check .` بدون خطا.
+### Definition of Done
+- `pip install -e ".[dev]"` succeeds without errors.
+- `pytest` is green.
+- `ruff check .` passes without errors.
 
 ---
 
-## فاز ۱ — Config + DB
+## Phase 1 — Config + DB
 
-### اهداف
-لایه‌ی پایداری داده و بارگذاری کانفیگ.
+### Objectives
+Data persistence layer and config loading.
 
-### وظایف
+### Tasks
 1. **`config.py`**:
-   - مدل‌های Pydantic برای کانفیگ (`SamplingConfig`, `StorageConfig`, `UIConfig`, `RuleConfig`, `ScreenshotExclusion`).
-   - `load_config(path: Path) -> Config`: خواندن TOML با `tomllib`، validation با Pydantic.
-   - `save_config(path: Path, config: Config)`: serialize به TOML.
-   - مقادیر پیش‌فرض در صورت نبود فایل (ساخت خودکار در `~/.timetracker/config.toml`).
-   - گسترش مسیرهای `~` با `Path.expanduser()`.
+   - Pydantic models for config (`SamplingConfig`, `StorageConfig`, `UIConfig`, `RuleConfig`, `ScreenshotExclusion`).
+   - `load_config(path: Path) -> Config`: read TOML with `tomllib`, validate with Pydantic.
+   - `save_config(path: Path, config: Config)`: serialize to TOML.
+   - Default values if file is missing (auto-create at `~/.timetracker/config.toml`).
+   - Expand `~` paths with `Path.expanduser()`.
 2. **`db/models.py`** (SQLModel):
-   - `Activity`، `Screenshot`، `Category`، `Rule`، `Meta` مطابق SPECIFICATION بخش ۵.
+   - `Activity`, `Screenshot`, `Category`, `Rule`, `Meta` per SPECIFICATION section 5.
 3. **`db/session.py`**:
-   - `create_engine(url)`: SQLite با `connect_args={"check_same_thread": False}` (چون چند thread استفاده می‌شود).
-   - فعال‌سازی **WAL mode**: `PRAGMA journal_mode=WAL` و `PRAGMA synchronous=NORMAL` هنگام اتصال.
-   - `get_session()` dependency برای FastAPI.
+   - `create_engine(url)`: SQLite with `connect_args={"check_same_thread": False}` (since multiple threads are used).
+   - Enable **WAL mode**: `PRAGMA journal_mode=WAL` and `PRAGMA synchronous=NORMAL` on connect.
+   - `get_session()` dependency for FastAPI.
 4. **`db/migrations.py`**:
-   - `init_db()`: `SQLModel.metadata.create_all()` + ساخت ایندکس‌ها.
-   - `seed_rules_from_config(config)`: همگام‌سازی اولیه‌ی rules از کانفیگ به جداول `categories`/`rules` (تنها اگر DB خالی است یا با flag `--reseed-rules`).
-   - `seed_meta_defaults()`: مقداردهی اولیه `meta.rule_version = 1`.
-5. **`db/seed_categories.py`** (یا تابعی در migrations):
-   - seed کتگوری‌های سیستمی `Idle` و `Uncategorized` با رنگ‌های ثابت.
+   - `init_db()`: `SQLModel.metadata.create_all()` + create indexes.
+   - `seed_rules_from_config(config)`: Initial sync of rules from config to `categories`/`rules` tables (only if DB is empty or via `--reseed-rules` flag).
+   - `seed_meta_defaults()`: Initialize `meta.rule_version = 1`.
+5. **`db/seed_categories.py`** (or function in migrations):
+   - Seed system categories `Idle` and `Uncategorized` with fixed colors.
 
-### خروجی‌ها
-- ماژول‌های `config.py`, `db/models.py`, `db/session.py`, `db/migrations.py`.
-- تست‌های واحد:
-  - بارگذاری کانفیگ از فایل نمونه.
-  - ساخت schema + درج/خواندن یک activity.
-  - seed rules از کانفیگ.
+### Deliverables
+- Modules `config.py`, `db/models.py`, `db/session.py`, `db/migrations.py`.
+- Unit tests:
+  - Load config from sample file.
+  - Create schema + insert/read an activity.
+  - Seed rules from config.
 
-### معیار تأیید
-- اسکریپت کوتاه (یا تست) که کانفیگ را بارگذاری، DB را init، و چند activity درج/بازخوانی کند.
+### Definition of Done
+- A short script (or test) that loads config, inits DB, and inserts/reads several activities.
 
 ---
 
-## فاز ۲ — لایه‌ی پلتفرم
+## Phase 2 — Platform Layer
 
-### اهداف
-اینترفیس واحد و بک‌اند‌های پلتفرم-خاص برای تشخیص پنجره و اسکرین‌شات.
+### Objectives
+Unified interface and platform-specific backends for window detection and screenshots.
 
-### وظایف
+### Tasks
 1. **`platform/base.py`**:
    - `@dataclass WindowInfo(process: str | None, title: str | None)`.
-   - `class ScreenshotQuality(str, Enum)`: `LOW` (max_width=800, jpeg_quality=30)، `MEDIUM` (1280, 60)، `HIGH` (1920, 85).
+   - `class ScreenshotQuality(str, Enum)`: `LOW` (max_width=800, jpeg_quality=30), `MEDIUM` (1280, 60), `HIGH` (1920, 85).
    - `class PlatformBackend(Protocol)`:
      - `get_active_window() -> WindowInfo | None`
      - `capture_active_window(quality: ScreenshotQuality) -> bytes | None`
 2. **`platform/windows.py`**:
    - `get_active_window`: `GetForegroundWindow` (ctypes) + `GetWindowTextW` + `GetWindowThreadProcessId` → `psutil.Process(pid).name()`.
-   - `capture_active_window`: گرفتن مستقیم HWND با `BitBlt` یا fallback به `mss` با برش منطقه‌ی پنجره (`GetWindowRect`).
-   - فشرده‌سازی JPEG با Pillow طبق `quality`.
+   - `capture_active_window`: Direct HWND capture with `BitBlt` or fallback to `mss` with window region (`GetWindowRect`).
+   - JPEG compression with Pillow per `quality`.
 3. **`platform/linux_x11.py`**:
-   - `get_active_window`: `python-xlib` با EWMH:
-     - `_NET_ACTIVE_WINDOW` از root → window.
-     - `_NET_WM_NAME` برای title.
-     - `_NET_WM_PID` برای pid → `psutil.Process(pid).name()`.
-   - `capture_active_window`: `mss` با منطقه‌ی پنجره (`_NET_WM_GEOMETRY` یا `get_geometry`) یا grab با Xlib.
-4. **`platform/linux_wayland.py`** (KDE Plasma 6 — پشتیبانی کامل):
-   - `get_active_window`: DBus call به `org.kde.KWin`:
+   - `get_active_window`: `python-xlib` with EWMH:
+     - `_NET_ACTIVE_WINDOW` from root → window.
+     - `_NET_WM_NAME` for title.
+     - `_NET_WM_PID` for pid → `psutil.Process(pid).name()`.
+   - `capture_active_window`: `mss` with window region (`_NET_WM_GEOMETRY` or `get_geometry`) or grab with Xlib.
+4. **`platform/linux_wayland.py`** (KDE Plasma 6 — full support):
+   - `get_active_window`: DBus call to `org.kde.KWin`:
      - `KWin.activeWindow` → window object.
-     - از window: خواندن `title`, `pid` (→ `psutil.Process(pid).name()`), `geometry` (برای `capture_active_window`).
-   - `capture_active_window`: DBus call به `org.kde.KWin`:
-     - `KWin.screenshotArea(x, y, w, h)` با مختصات `geometry` پنجره‌ی فعال (بدون تأیید کاربر).
-     - فشرده‌سازی JPEG با Pillow طبق `quality`.
-   - **Fallback:** اگر `screenshotArea` در دسترس نبود → `KWin.screenshotFullScreen` + برش با Pillow.
-   - **در صورت نبود KWin:** لاگ هشدار + raise `NotImplementedError`.
+     - From window: read `title`, `pid` (→ `psutil.Process(pid).name()`), `geometry` (for `capture_active_window`).
+   - `capture_active_window`: DBus call to `org.kde.KWin`:
+     - `KWin.screenshotArea(x, y, w, h)` with active window geometry (without user prompt).
+     - JPEG compression with Pillow per `quality`.
+   - **Fallback:** If `screenshotArea` is unavailable → `KWin.screenshotFullScreen` + crop with Pillow.
+   - **If KWin is unavailable:** Log warning + raise `NotImplementedError`.
 5. **`platform/factory.py`**:
    - `get_backend() -> PlatformBackend`:
      - `sys.platform == "win32"` → `WindowsBackend`.
-     - لینوکس + `WAYLAND_DISPLAY` موجود + `KDE_FULL_SESSION` و KWin روی DBus → `WaylandBackend`.
-     - لینوکس + `DISPLAY` → `X11Backend`.
-     - در غیر این صورت → raise `RuntimeError`.
+     - Linux + `WAYLAND_DISPLAY` present + `KDE_FULL_SESSION` and KWin on DBus → `WaylandBackend`.
+     - Linux + `DISPLAY` → `X11Backend`.
+     - Otherwise → raise `RuntimeError`.
 
-### خروجی‌ها
-- چهار ماژول در `platform/`.
-- تست‌ها با **mock** (با patch کردن توابع Win32/Xlib/DBus) برای تأیید یکسان بودن contract.
+### Deliverables
+- Four modules in `platform/`.
+- Tests with **mocks** (patching Win32/Xlib/DBus functions) to verify contract consistency.
 
-### معیار تأیید
-- اسکریپت دستی روی هر پلتفرم: چاپ کردن `get_active_window()` هر ۲ ثانیه (بدون ذخیره‌سازی).
+### Definition of Done
+- Manual script on each platform: print `get_active_window()` every 2 seconds (no storage).
 
 ---
 
-## فاز ۳ — Sampler (Event-based) + Categorizer  ← **M1**
+## Phase 3 — Sampler (Event-based) + Categorizer  ← **M1**
 
-### اهداف
-قلب اپ: تشخیص تغییر پنجره و ثبت activities در DB.
+### Objectives
+The heart of the app: detect window changes and record activities in the DB.
 
-### وظایف
+### Tasks
 1. **`tracking/categorizer.py`**:
    - `class Categorizer`:
-     - `__init__`: بارگذاری rules و categories از DB، کامپایل regexها با `re.compile(..., re.IGNORECASE)`.
-     - `categorize(process: str | None, title: str | None) -> str`: اعمال منطق OR/AND/priority.
-     - `reload()`: بارگذاری مجدد rules (زمانی که rules تغییر می‌کنند).
-     - **مدیریت خطا:** regex نامعتبر → لاگ + نادیده گرفتن آن rule (نه کرش).
-   - کش کردن compiled regexها برای کارایی.
+     - `__init__`: load rules and categories from DB, compile regexes with `re.compile(..., re.IGNORECASE)`.
+     - `categorize(process: str | None, title: str | None) -> str`: apply OR/AND/priority logic.
+     - `reload()`: reload rules (when rules change).
+     - **Error handling:** Invalid regex → log + ignore that rule (don't crash).
+   - Cache compiled regexes for performance.
 2. **`tracking/sampler.py`**:
    - `class Sampler(threading.Thread)`:
      - `__init__(backend, session_factory, categorizer, poll_interval, stop_event)`.
@@ -178,30 +177,30 @@
                _close_activity(current_activity)   # set end_ts + duration_sec
                current_activity = _open_activity(info, categorizer)  # insert with rule_version
            stop_event.wait(poll_interval)
-       _close_activity(current_activity)  # در هنگام stop
+       _close_activity(current_activity)  # on stop
        ```
-     - `_changed(info, activity)`: مقایسه‌ی `process` و `title`.
-     - `_open_activity(info)`: categorize + درج activity با `rule_version` فعلی.
-     - **Idle handling:** اگر `info is None`، activity با `process=None, category="Idle"`.
-   - **نکته‌ی threading:** هر thread باید session خودش را داشته باشد (SQLModel sessions thread-safe نیستند).
+     - `_changed(info, activity)`: compare `process` and `title`.
+     - `_open_activity(info)`: categorize + insert activity with current `rule_version`.
+     - **Idle handling:** If `info is None`, activity with `process=None, category="Idle"`.
+   - **Threading note:** Each thread must have its own session (SQLModel sessions are not thread-safe).
 
-### خروجی‌ها
-- `categorizer.py` و `sampler.py`.
-- تست‌های واحد:
-  - Categorizer: دنباله‌ای از `(process, title)` → بررسی دسته‌ی خروجی با rules نمونه.
-  - Sampler: شبیه‌سازی دنباله‌ای از `WindowInfo` با mock backend → بررسی activity‌های تولیدشده، `duration_sec`، و دسته‌بندی.
+### Deliverables
+- `categorizer.py` and `sampler.py`.
+- Unit tests:
+  - Categorizer: sequence of `(process, title)` → verify output category with sample rules.
+  - Sampler: simulate a sequence of `WindowInfo` with mock backend → verify generated activities, `duration_sec`, and categorization.
 
-### معیار تأیید (M1)
-- یک اسکریپت/CLI که sampler را برای ۳۰ ثانیه اجرا می‌کند، سپس محتویات جدول `activities` را چاپ می‌کند. باید بازه‌های معقول با `duration_sec` صحیح دیده شود.
+### Definition of Done (M1)
+- A script/CLI that runs the sampler for 30 seconds, then prints the `activities` table contents. Reasonable time ranges with correct `duration_sec` must be seen.
 
 ---
 
-## فاز ۴ — اسکرین‌شات + Retention
+## Phase 4 — Screenshot + Retention
 
-### اهداف
-گرفتن عکس دوره‌ای از پنجره‌ی فعال + پاکسازی خودکار.
+### Objectives
+Periodically capture active window screenshots + auto cleanup.
 
-### وظایف
+### Tasks
 1. **`screenshots/capture.py`**:
    - `class ScreenshotCapture(threading.Thread)`:
      - `__init__(backend, session_factory, interval, quality, screenshot_dir, exclusions, stop_event)`.
@@ -215,9 +214,9 @@
                    _save_screenshot(image_bytes, current_activity_id)
            stop_event.wait(interval)
        ```
-     - `_is_excluded(info, exclusions)`: تطبیق regex روی process/title.
-     - `_save_screenshot(bytes)`: تولید نام فایل (طبق SPECIFICATION بخش FR-5)، نوشتن فایل، درج رکورد در `screenshots` با `activity_id` رکورد باز فعلی.
-   - **لینک به activity جاری:** کوئری activity با `end_ts IS NULL` ORDER BY `start_ts DESC LIMIT 1`.
+     - `_is_excluded(info, exclusions)`: regex match on process/title.
+     - `_save_screenshot(bytes)`: generate filename (per SPECIFICATION FR-5), write file, insert record in `screenshots` with the current open activity's `activity_id`.
+   - **Link to current activity:** Query activity with `end_ts IS NULL` ORDER BY `start_ts DESC LIMIT 1`.
 2. **`screenshots/retention.py`**:
    - `class RetentionWorker(threading.Thread)`:
      - `__init__(session_factory, retention_days, interval=3600, stop_event)`.
@@ -227,40 +226,40 @@
            _purge_old_screenshots(retention_days)
            stop_event.wait(interval)
        ```
-     - `_purge_old_screenshots`: کوئری screenshots قدیمی → حذف فایل → حذف رکورد DB.
+     - `_purge_old_screenshots`: query old screenshots → delete file → delete DB record.
 
-### خروجی‌ها
-- `capture.py` و `retention.py`.
-- تست‌ها:
-  - فشرده‌سازی در سطوح کیفیت مختلف (بررسی حداکثر عرض و حجم نسبی).
-  - رفتار exclusion (عدم ذخیره‌سازی برای پروسس‌های مستثنی).
-  - retention (حذف فایل و رکورد پس از N روز با استفاده از clock mock).
+### Deliverables
+- `capture.py` and `retention.py`.
+- Tests:
+  - Compression at different quality levels (verify max width and relative file size).
+  - Exclusion behavior (no storage for excluded processes).
+  - Retention (file and record deletion after N days using clock mock).
 
-### معیار تأیید
-- اجرای موقت capture برای ۳۰ ثانیه → بررسی ایجاد فایل‌های JPEG و رکوردهای DB.
+### Definition of Done
+- Run capture temporarily for 30 seconds → verify JPEG files and DB records are created.
 
 ---
 
-## فاز ۵ — FastAPI  ← **M2**
+## Phase 5 — FastAPI  ← **M2**
 
-### اهداف
-API برای تغذیه‌ی داشبورد.
+### Objectives
+API to feed the dashboard.
 
-### وظایف
+### Tasks
 1. **`api/deps.py`**:
    - `get_session()`: generator yielding SQLModel session.
-   - `get_config()`: برگرداندن کانفیگ فعلی.
-   - `get_categorizer()`: نمونه‌ی مشترک categorizer (با reload هنگام تغییر rules).
+   - `get_config()`: return current config.
+   - `get_categorizer()`: shared categorizer instance (reloaded on rule changes).
 2. **`api/server.py`**:
-   - ساخت `FastAPI`.
-   - mount کردن فایل‌های static (Angular build در `dashboard/dist/`) در `/`.
-   - CORS محدود به `localhost`.
-   - endpoint `/api/health` برای sanity check.
+   - Create `FastAPI`.
+   - Mount static files (Angular build in `dashboard/dist/`) at `/`.
+   - CORS restricted to `localhost`.
+   - `/api/health` endpoint for sanity check.
 3. **`api/routes/stats.py`**:
-   - `GET /stats/summary?start=&end=`: aggregate کل مدت بر دسته.
-   - `GET /stats/timeline?start=&end=&bucket=hour|day`: داده‌ی تایم‌لاین (GROUP BY bucket و category، SUM(duration_sec)).
-   - `GET /stats/breakdown?start=&end=`: تفکیک زمان بر دسته.
-   - **کوئری‌های aggregate با SQL** (نه Python-side):
+   - `GET /stats/summary?start=&end=`: aggregate total duration by category.
+   - `GET /stats/timeline?start=&end=&bucket=hour|day`: timeline data (GROUP BY bucket and category, SUM(duration_sec)).
+   - `GET /stats/breakdown?start=&end=`: time breakdown by category.
+   - **Aggregate queries in SQL** (not Python-side):
      ```sql
      SELECT category, SUM(duration_sec) AS total
      FROM activities
@@ -268,220 +267,220 @@ API برای تغذیه‌ی داشبورد.
      GROUP BY category
      ORDER BY total DESC;
      ```
-   - **فعالیت باز:** در کوئری، رکورد `end_ts IS NULL` با `duration_sec = EXTRACT(epoch FROM now() - start_ts)` لحاظ شود.
-4. **`api/routes/rules.py`** و **`categories.py`**:
-   - CRUD کامل. هنگام تغییر: `meta.rule_version += 1` و trigger recompute (با ارسال سیگنال به recompute worker).
-   - `POST /rules/test`: اعمال regex روی فعالیت‌های اخیر یا نمونه‌ی فرضی.
+   - **Open activity:** In queries, the `end_ts IS NULL` record is included with `duration_sec = EXTRACT(epoch FROM now() - start_ts)`.
+4. **`api/routes/rules.py`** and **`categories.py`**:
+   - Full CRUD. On change: `meta.rule_version += 1` and trigger recompute (signal the recompute worker).
+   - `POST /rules/test`: apply regex to recent activities or hypothetical samples.
 5. **`api/routes/screenshots.py`**:
-   - `GET /screenshots?start=&end=&page=`: صفحه‌بندی.
-   - `GET /screenshots/{id}/file`: `FileResponse` با JPEG.
+   - `GET /screenshots?start=&end=&page=`: paginated.
+   - `GET /screenshots/{id}/file`: `FileResponse` with JPEG.
 6. **`api/routes/config.py`**:
-   - `GET /config` و `PUT /config` (با اعمال تغییرات در حافظه و ذخیره‌ی فایل TOML).
+   - `GET /config` and `PUT /config` (apply changes in memory and save TOML file).
 7. **`api/routes/tracking.py`**:
-   - `GET /status`: وضعیت tracking، uptime، تعداد activities/screenshots.
-   - `POST /tracking/start` و `/tracking/stop`: تنظیم `stop_event` sampler و screenshot.
+   - `GET /status`: tracking status, uptime, activity/screenshot counts.
+   - `POST /tracking/start` and `/tracking/stop`: set sampler and screenshot `stop_event`.
 
-### خروجی‌ها
-- ماژول‌های API.
-- تست با `fastapi.testclient.TestClient`: بررسی aggregate با داده‌ی seed شده.
+### Deliverables
+- API modules.
+- Tests with `fastapi.testclient.TestClient`: verify aggregates with seeded data.
 
-### معیار تأیید (M2)
-- `curl http://localhost:<port>/api/stats/breakdown?start=...&end=...` خروجی JSON معتبر.
+### Definition of Done (M2)
+- `curl http://localhost:<port>/api/stats/breakdown?start=...&end=...` returns valid JSON.
 
 ---
 
-## فاز ۶ — Recompute Worker
+## Phase 6 — Recompute Worker
 
-### اهداف
-باز‌دسته‌بندی خودکار هنگام تغییر rules.
+### Objectives
+Auto re-categorization on rule changes.
 
-### وظایف
+### Tasks
 1. **`tracking/recompute.py`**:
    - `class RecomputeWorker(threading.Thread)`:
      - `__init__(session_factory, categorizer, stop_event, trigger_event)`.
      - `run()`:
        ```python
        while not stop_event.is_set():
-           if trigger_event.wait(timeout=60):   # صبر برای سیگنال تغییر rule
+           if trigger_event.wait(timeout=60):   # wait for rule change signal
                trigger_event.clear()
                _recompute_all()
        ```
      - `_recompute_all()`:
-       - خواندن `current_version` از `meta`.
-       - حلقه بر چانک‌ها (۱۰۰۰ ردیف):
+       - Read `current_version` from `meta`.
+       - Loop over chunks (1000 rows):
          ```sql
          SELECT id, process, title FROM activities
          WHERE rule_version < :current_version
          LIMIT 1000 OFFSET :offset;
          ```
-       - برای هر ردیف: `category = categorizer.categorize(process, title)`، آپدیت با `rule_version = current_version`.
-       - **yield/sleep کوتاه** بین چانک‌ها (مثلاً ۱۰ms) برای جلوگیری از قفل‌کردن DB.
-   - در پایان، emit یک notification (مثلاً روی یک `queue.Queue` که داشبورد poll می‌کند یا WebSocket در فاز ۷).
+       - For each row: `category = categorizer.categorize(process, title)`, update with `rule_version = current_version`.
+       - **Short yield/sleep** between chunks (e.g., 10ms) to prevent DB locking.
+   - On completion, emit a notification (e.g., on a `queue.Queue` that the dashboard polls, or WebSocket in Phase 7).
 
-### خروجی‌ها
+### Deliverables
 - `recompute.py`.
-- تست: درج activities با rules قدیمی → تغییر rule → بررسی باز‌دسته‌بندی همه.
+- Test: insert activities with old rules → change rule → verify all re-categorized.
 
-### معیار تأیید
-- تغییر یک rule از طریق API → بررسی به‌روزرسانی `category` در جدول activities پس از چند ثانیه.
+### Definition of Done
+- Change a rule via API → verify `category` updates in the activities table after a few seconds.
 
 ---
 
-## فاز ۷ — Angular داشبورد
+## Phase 7 — Angular Dashboard
 
-### اهداف
-رابط کاربری وب برای داده‌ها و مدیریت rules.
+### Objectives
+Web UI for data visualization and rule management.
 
-### وظایف
+### Tasks
 1. **Scaffold**:
    - `ng new dashboard --standalone --style=css --routing`.
-   - نصب `ngx-echarts`, `echarts`, `date-fns`, `tailwindcss`.
+   - Install `ngx-echarts`, `echarts`, `date-fns`, `tailwindcss`.
 2. **`services/`**:
-   - `StatsService`, `RulesService`, `CategoriesService`, `ScreenshotsService`, `ConfigService`, `TrackingService` — wrappers با `HttpClient` به `/api/*`.
-3. **مدل‌های TypeScript** (`models/`):
-   - interfaceهای منطبق با schema API (`Activity`, `Category`, `Rule`, `Screenshot`, `Config`, `StatsSummary`, ...).
-4. **صفحات**:
-   - **Overview**: date-range picker (امروز/دیروز/هفته/ماه/custom) + Pie/Donut + Timeline (با dataZoom).
-   - **Categories**: لیست کتگوری‌ها و ruleها، فرم افزودن/ویرایش، **تست زنده‌ی regex** (نمایش فعالیت‌های اخیری که مچ می‌شوند).
-   - **Screenshots**: گالری با lazy-load، فیلتر بازه و دسته، lightbox.
-   - **Settings**: فرم ویرایش کانفیگ + ذخیره.
+   - `StatsService`, `RulesService`, `CategoriesService`, `ScreenshotsService`, `ConfigService`, `TrackingService` — wrappers with `HttpClient` to `/api/*`.
+3. **TypeScript Models** (`models/`):
+   - Interfaces matching API schema (`Activity`, `Category`, `Rule`, `Screenshot`, `Config`, `StatsSummary`, ...).
+4. **Pages**:
+   - **Overview**: date-range picker (today/yesterday/week/month/custom) + Pie/Donut + Timeline (with dataZoom).
+   - **Categories**: list categories and rules, add/edit forms, **live regex testing** (show recent matching activities).
+   - **Screenshots**: gallery with lazy-load, range and category filter, lightbox.
+   - **Settings**: config edit form + save.
 5. **Build**:
-   - `ng build --output-path ../src/timetracker/api/static` (یا مسیر مشترک) → فایل‌های static که FastAPI سرو می‌کند.
+   - `ng build --output-path ../src/timetracker/api/static` (or shared path) → static files served by FastAPI.
 
-### خروجی‌ها
-- پروژه‌ی Angular کامل در `dashboard/`.
-- بررسی دستی در مرورگر (پس از `ng build` و اجرای FastAPI).
+### Deliverables
+- Complete Angular project in `dashboard/`.
+- Manual verification in browser (after `ng build` and running FastAPI).
 
-### معیار تأیید
-- باز کردن `http://localhost:<port>/` در مرورگر و مشاهده‌ی نمودارها و ویرایش rules.
+### Definition of Done
+- Open `http://localhost:<port>/` in browser and see charts + edit rules.
 
 ---
 
-## فاز ۸ — Qt UI + یکپارچه‌سازی  ← **M3**
+## Phase 8 — Qt UI + Integration  ← **M3**
 
-### اهداف
-چسباندن همه‌چیز زیر یک اپ دسکتاپ با tray و داشبورد embed شده.
+### Objectives
+Glue everything together under a desktop app with tray and embedded dashboard.
 
-### وظایف
+### Tasks
 1. **`ui/tray.py`**:
    - `class TrayController`:
-     - `QSystemTrayIcon` با آیکون وضعیت (tracking فعال/غیرفعال).
-     - context menu: Toggle Tracking، Open Dashboard، Settings، Quit.
-     - `showMessage` برای notification‌ها (مثلاً پایان recompute).
+     - `QSystemTrayIcon` with status icon (tracking active/inactive).
+     - Context menu: Toggle Tracking, Open Dashboard, Settings, Quit.
+     - `showMessage` for notifications (e.g., recompute complete).
 2. **`ui/dashboard_window.py`**:
    - `class DashboardWindow(QMainWindow)`:
-     - `QWebEngineView` در مرکز، بارگذاری `http://localhost:<port>/`.
-     - حداقل اندازه و عنوان مناسب.
+     - `QWebEngineView` in the center, loading `http://localhost:<port>/`.
+     - Minimum size and appropriate title.
 3. **`__main__.py`**:
-   - ساخت `QApplication`.
-   - بارگذاری کانفیگ + init DB (مهاجرت + seed).
-   - تشخیص بک‌اند پلتفرم با `factory.get_backend()`.
-   - **بستن رکوردهای باز از جلسه‌ی قبلی** (NFR-4): `UPDATE activities SET end_ts = <startup_time>, duration_sec = ... WHERE end_ts IS NULL`.
-   - راه‌اندازی threadها: Sampler، ScreenshotCapture، RetentionWorker، RecomputeWorker.
-   - راه‌اندازی FastAPI در یک thread (با `uvicorn.Server` و `uvicorn.Config`).
-   - ساخت TrayController و (اگر کانفیگ بگوید) DashboardWindow.
-   - اتصال سیگنال تغییر rule به `trigger_event` recompute worker.
-   - **Shutdown تمیز**: set `stop_event`ها، join threadها با timeout، `app.exec()` پایان.
+   - Create `QApplication`.
+   - Load config + init DB (migration + seed).
+   - Detect platform backend with `factory.get_backend()`.
+   - **Close open records from previous session** (NFR-4): `UPDATE activities SET end_ts = <startup_time>, duration_sec = ... WHERE end_ts IS NULL`.
+   - Start threads: Sampler, ScreenshotCapture, RetentionWorker, RecomputeWorker.
+   - Start FastAPI in a thread (with `uvicorn.Server` and `uvicorn.Config`).
+   - Create TrayController and (if config says so) DashboardWindow.
+   - Connect rule change signal to recompute worker's `trigger_event`.
+   - **Clean shutdown**: set `stop_event`s, join threads with timeout, `app.exec()` ends.
 
-### خروجی‌ها
+### Deliverables
 - `tray.py`, `dashboard_window.py`, `__main__.py`.
-- تست integration: راه‌اندازی کامل، تولید داده، بررسی نمودار از طریق API.
+- Integration test: full startup, generate data, verify charts via API.
 
-### معیار تأیید (M3)
-- اجرای `python -m timetracker` → آیکون tray ظاهر می‌شود → باز کردن داشبورد → مشاهده‌ی داده‌های لحظه‌ای.
+### Definition of Done (M3)
+- Run `python -m timetracker` → tray icon appears → open dashboard → see live data.
 
 ---
 
-## فاز ۹ — بسته‌بندی
+## Phase 9 — Packaging
 
-### اهداف
-توزیع به‌صورت executable مستقل.
+### Objectives
+Distribute as standalone executables.
 
-### وظایف
+### Tasks
 1. **PyInstaller spec**:
-   - ورودی: `src/timetracker/__main__.py`.
-   - `--onedir` (سریع‌تر startup از `--onefile`).
-   - باندل: PySide6 (شامل QWebEngine)، Angular build (در مسیر static).
-   - `--collect-all PySide6` و `--collect-all shiboken6`.
-   - hidden imports برای backend‌های پلتفرم.
-2. **اسکریپت build**:
-   - `scripts/build.sh` (لینوکس) و `scripts/build.ps1` (ویندوز).
-   - ابتدا `ng build`، سپس `pyinstaller`.
+   - Input: `src/timetracker/__main__.py`.
+   - `--onedir` (faster startup than `--onefile`).
+   - Bundle: PySide6 (including QWebEngine), Angular build (in static path).
+   - `--collect-all PySide6` and `--collect-all shiboken6`.
+   - Hidden imports for platform backends.
+2. **Build scripts**:
+   - `scripts/build.sh` (Linux) and `scripts/build.ps1` (Windows).
+   - First `ng build`, then `pyinstaller`.
 3. **README**:
-   - راهنمای نصب از سورس و از executable.
-   - توضیح پیش‌نیازهای Wayland (KDE Plasma 6 + `kde-cli-tools`).
-   - راهنمای پیکربندی اولیه.
+   - Install guide from source and from executable.
+   - Explain Wayland prerequisites (KDE Plasma 6 + `kde-cli-tools`).
+   - Initial configuration guide.
 
-### خروجی‌ها
-- `timetracker.spec`، اسکریپت‌های build، README گسترش‌یافته.
-- executable تست‌شده روی ویندوز و لینوکس.
+### Deliverables
+- `timetracker.spec`, build scripts, expanded README.
+- Tested executable on Windows and Linux.
 
-### معیار تأیید
-- executable روی یک سیستم تمیز (بدون Python) اجرا می‌شود و کار می‌کند.
+### Definition of Done
+- Executable runs on a clean system (no Python) and works.
 
 ---
 
-## ۳. ترتیب اجرا و وابستگی‌ها
+## 3. Execution Order and Dependencies
 
 ```
-فاز ۰
+Phase 0
   │
-  ├──► فاز ۱ (Config+DB) ──────────────────────┐
-  │                                              │
-  └──► فاز ۲ (Platform) ──┐                      │
-                           ▼                      │
-                          فاز ۳ (Sampler) ◄───────┘
-                           │
-                           ├──► فاز ۴ (Screenshot)
-                           │
-                           ├──► فاز ۵ (API)
-                           │        │
-                           │        ▼
-                           │    فاز ۷ (Angular)
-                           │
-                           └──► فاز ۶ (Recompute)
-                                    │
-                                    ▼
-                          فاز ۸ (Qt UI) ◄── فاز ۴، ۵، ۶، ۷
-                                    │
-                                    ▼
-                              فاز ۹ (Packaging)
+  ├──► Phase 1 (Config+DB) ──────────────────────┐
+  │                                                │
+  └──► Phase 2 (Platform) ──┐                      │
+                             ▼                      │
+                           Phase 3 (Sampler) ◄──────┘
+                            │
+                            ├──► Phase 4 (Screenshot)
+                            │
+                            ├──► Phase 5 (API)
+                            │        │
+                            │        ▼
+                            │    Phase 7 (Angular)
+                            │
+                            └──► Phase 6 (Recompute)
+                                     │
+                                     ▼
+                           Phase 8 (Qt UI) ◄── Phases 4, 5, 6, 7
+                                     │
+                                     ▼
+                               Phase 9 (Packaging)
 ```
 
-**مسیر بحرانی:** ۰ → ۱ → ۳ → ۵ → ۷ → ۸ → ۹.
+**Critical path:** 0 → 1 → 3 → 5 → 7 → 8 → 9.
 
-**موازی‌سازی ممکن:**
-- فاز ۱ و ۲ موازی (هر دو فقط به فاز ۰ وابسته‌اند).
-- فاز ۴ و ۶ موازی پس از فاز ۳.
-- فاز ۷ می‌تواند با فاز ۶ موازی شروع شود (با mock API).
+**Possible parallelization:**
+- Phase 1 and 2 in parallel (both only depend on Phase 0).
+- Phase 4 and 6 in parallel after Phase 3.
+- Phase 7 can start in parallel with Phase 6 (with mock API).
 
 ---
 
-## ۴. ریسک‌های پیاده‌سازی و کاهش
+## 4. Implementation Risks and Mitigations
 
-| ریسک | فاز(های) تحت تأثیر | کاهش |
+| Risk | Affected Phase(s) | Mitigation |
 |---|---|---|
-| Wayland API محدود به KDE/KWin است | ۲ | Factory بررسی کند آیا `KDE_FULL_SESSION` و `org.kde.KWin` روی DBus موجود است؛ در غیر این صورت fallback به X11 یا raise `RuntimeError`. |
-| SQLAlchemy/SQLModel thread safety | ۳، ۴، ۶ | هر thread session مستقل؛ استفاده از `sessionmaker`. |
-| QWebEngineView سنگین است در PyInstaller | ۹ | استفاده از `--collect-all` و تست باندل. |
-| regex کاربر باعث ReDoS می‌شود | ۳، ۶ | timeout روی `re` (یا استفاده از `regex` module با `timeout`). |
-| همگام‌سازی تغییر کانفیگ بین threadها | ۸ | یک صف تغییر کانفیگ + reload امن در هر worker. |
-| حجم تست داده‌ی واقعی پلتفرم | ۲، ۳ | mock-backend قوی + تست integration فقط روی CI. |
+| Wayland API limited to KDE/KWin | 2 | Factory checks if `KDE_FULL_SESSION` and `org.kde.KWin` are on DBus; otherwise fall back to X11 or raise `RuntimeError`. |
+| SQLAlchemy/SQLModel thread safety | 3, 4, 6 | Each thread has its own session; use `sessionmaker`. |
+| QWebEngineView is heavy in PyInstaller | 9 | Use `--collect-all` and test the bundle. |
+| User regex causes ReDoS | 3, 6 | Timeout on `re` (or use `regex` module with `timeout`). |
+| Config change synchronization across threads | 8 | A config change queue + safe reload in each worker. |
+| Real platform test data volume | 2, 3 | Strong mock-backend + integration tests only on CI. |
 
 ---
 
-## ۵. تصمیمات طراحی کلیدی (Log)
+## 5. Key Design Decisions (Log)
 
-| تصمیم | تاریخ | دلیل |
+| Decision | Date | Rationale |
 |---|---|---|
-| Event-based sampling (نه polling ثابت) | ۲۰۲۶-۰۷-۰۴ | درخواست کاربر: تشخیص خودکار تغییر پنجره، فقط ثبت تغییرات. |
-| ذخیره‌ی category در activities + recompute | ۲۰۲۶-۰۷-۰۴ | درخواست کاربر: تغییر آنی regex باید کل تاریخ را باز‌دسته‌بندی کند؛ recompute سبک به‌خاطر حجم کم داده. |
-| SQLite (نه Postgres) به‌عنوان دیفالت | ۲۰۲۶-۰۷-۰۴ | با مدل recompute، regex در زمان نوشتن (Python) اجرا می‌شود؛ مزیت Postgres از بین رفت. لایه‌ی abstraction برای سوییچ آینده. |
-| PySide6 به‌جای PyQt6 | ۲۰۲۶-۰۷-۰۴ | لایسنس LGPL (رسمی Qt)، مناسب‌تر برای پروژه. |
-| Angular در QWebEngineView | ۲۰۲۶-۰۷-۰۴ | درخواست کاربر: داشبورد یکپارچه داخل خود اپ. |
+| Event-based sampling (not constant polling) | 2026-07-04 | User request: auto-detect window changes, only record changes. |
+| Store category in activities + recompute | 2026-07-04 | User request: instant regex changes must re-categorize entire history; recompute is lightweight due to low data volume. |
+| SQLite (not Postgres) as default | 2026-07-04 | With the recompute model, regex runs at write time (Python); Postgres' advantage is moot. Abstraction layer for future switch. |
+| PySide6 instead of PyQt6 | 2026-07-04 | LGPL license (official Qt), more suitable for the project. |
+| Angular in QWebEngineView | 2026-07-04 | User request: integrated dashboard within the app itself. |
 
 ---
 
-## ۶. گام بعدی
+## 6. Next Step
 
-شروع از **فاز ۰ (راه‌اندازی پروژه)**. پس از تکمیل آن، ادامه به **فاز ۱ و ۲ به‌صورت موازی**.
+Start from **Phase 0 (Project Setup)**. After completion, proceed to **Phases 1 and 2 in parallel**.

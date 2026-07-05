@@ -1,153 +1,152 @@
 # Project Specification — Time Tracker
 
-> **وضعیت سند:** Draft v1.0 · آخرین به‌روزرسانی: ۲۰۲۶-۰۷-۰۴
-> **زبان:** فارسی (اصلی)؛ اصطلاحات فنی به انگلیسی Где که رایج‌اند.
+> **Document Status:** Draft v1.0 · Last Updated: 2026-07-04
 
 ---
 
-## ۱. مرور کلی (Overview)
+## 1. Overview
 
-یک تایم‌ترکر دسکتاپی **کراس‌پلتفرم** که فعالیت کاربر را روی رایانه به‌صورت **event-based** ضبط می‌کند: تنها هنگام **تعویض پنجره‌ی فعال** یک رکورد ثبت می‌شود (نه polling نقطه‌ای در فواصل ثابت). این设计 حجم داده‌ها را به‌شدت کاهش می‌دهد و امکان باز‌دسته‌بندی (recompute) سبک کل تاریخ را فراهم می‌کند.
+A **cross-platform** desktop time tracker that records user activity on a computer in an **event-based** manner: records are created only when the **active window changes** (not constant polling at fixed intervals). This design drastically reduces data volume and enables lightweight recomputation of the entire history.
 
-دسته‌بندی فعالیت‌ها با **regex** انجام می‌شود و **قابل تغییر آنی** است: کاربر هر لحظه می‌تواند کتگوری‌ها و الگوهای regex را افزود/ویرایش/حذف کند و کل تاریخچه به‌طور خودکار باز‌دسته‌بندی شود. نمودار مصرف در بازه‌های مختلف (روز/هفته/ماه/بازه دلخواه) ارائه می‌شود و هر ۱۰ ثانیه از پنجره‌ی فعال اسکرین‌شات با کیفیت قابل تنظیم گرفته می‌شود.
+Activity categorization is done with **regex** and is **instantly changeable**: users can add/edit/delete categories and regex patterns at any time, and the entire history is automatically re-categorized. Usage charts over various ranges (day/week/month/custom) are provided, and screenshots of the active window are taken every 10 seconds with adjustable quality.
 
-### اهداف اصلی
-- پشتیبانی از **ویندوز** و **لینوکس** (حداقل KDE Plasma).
-- ضبط خودکار و کم‌حجم بر اساس تغییر پنجره (نه sampling ثابت).
-- دسته‌بندی انعطاف‌پذیر و **قابل بازنگری** با regex.
-- نمایش بصری داده‌ها در بازه‌های زمانی مختلف.
-- اسکرین‌شات دوره‌ای با مدیریت ذخیره‌سازی و حریم خصوصی.
+### Core Objectives
+- Support **Windows** and **Linux** (at minimum KDE Plasma).
+- Automatic, low-volume recording based on window changes (not fixed interval sampling).
+- Flexible and **revisable** categorization with regex.
+- Visual data display across different time ranges.
+- Periodic screenshots with storage management and privacy controls.
 
-### مخاطب و الگوی استفاده
-اپلیکیشن **تک‌کاربره‌ی شخصی** است که روی دستگاه خود کاربر اجرا می‌شود. تمام داده‌ها به‌صورت **محلی** ذخیره می‌شوند و هیچ ارسالی به شبکه صورت نمی‌گیرد (جز پورت `localhost` برای داشبورد).
+### Audience and Usage Pattern
+The application is a **single-user personal** tool running on the user's own device. All data is stored **locally** and no data is sent over the network (except to the `localhost` port for the dashboard).
 
 ---
 
-## ۲. الزامات عملیاتی (Functional Requirements)
+## 2. Functional Requirements
 
-### FR-1 — تشخیص پنجره‌ی فعال (Event-based)
-- اپ هر **۱–۲ ثانیه** (قابل پیکربندی) پنجره‌ی فعال را **فقط برای تشخیص تغییر** poll می‌کند. تا زمانی که `process` و `title` ثابت‌اند، **هیچ رکوردی** ثبت نمی‌شود.
-- هنگام تغییر پنجره از `A` به `B`:
-  1. رکورد `A` بسته می‌شود: `end_ts = now` و `duration_sec = end_ts − start_ts` محاسبه و ذخیره می‌شود.
-  2. رکورد جدید `B` باز می‌شود: `start_ts = now` و `end_ts = NULL` (نشان‌گر «در حال انجام»).
-- **همیشه دقیقاً یک رکورد باز (open-ended)** وجود دارد — آخرین فعالیتی که کاربر در حال انجام آن است.
-- در غیاب پنجره‌ی فعال (مثلاً دسکتاپ فوکوس شده، صفحه‌ی قفل، یا عدم دسترسی)، یک رکورد با `process = NULL` و `category = "Idle"` ثبت می‌شود.
-- **جهت‌گیری حساس به تغییر (Change detection):** دو پنجره یکسان تلقی می‌شوند اگر و فقط اگر هم `process` و هم `title` یکسان باشند.
+### FR-1 — Active Window Detection (Event-based)
+- The app polls the active window every **1–2 seconds** (configurable) **only to detect changes**. As long as `process` and `title` remain the same, **no records** are created.
+- When the window changes from `A` to `B`:
+  1. Record `A` is closed: `end_ts = now` and `duration_sec = end_ts − start_ts` are calculated and stored.
+  2. New record `B` is opened: `start_ts = now` and `end_ts = NULL` (indicating "in progress").
+- **Exactly one open-ended record** always exists — the most recent activity the user is performing.
+- In the absence of an active window (e.g., desktop focused, lock screen, or access denied), a record with `process = NULL` and `category = "Idle"` is logged.
+- **Change detection orientation:** Two windows are considered the same if and only if both `process` and `title` are identical.
 
-### FR-2 — دسته‌بندی با regex
-- داده‌ی دسته‌بندی در سه جدول ذخیره می‌شود:
+### FR-2 — Regex-Based Categorization
+- Categorization data is stored in three tables:
   - `categories(id, name UNIQUE, color, priority, enabled)`
   - `rules(id, category_id FK, process_regex NULL, title_regex NULL)`
-- **ساختار منطق تطبیق:**
-  - هر کتگوری می‌تواند **چند rule** داشته باشد → بین ruleهای یک کتگوری **OR** برقرار است (هرکدام مچ شود، کتگوری مچ شده).
-  - داخل یک rule، `process_regex` و `title_regex` باید **هر دو** مچ شوند (AND). اگر یکی `NULL` باشد، آن شرط نادیده گرفته می‌شود (یعنی فقط شرط دیگر معتبر است).
-- **اولویت کتگوری‌ها:** کتگوری‌ها بر اساس `priority` مرتب می‌شوند؛ **اولین کتگوری مچ‌شده برنده است**.
-- **رفتار پیش‌فرض:** فعالیت‌هایی که با هیچ کتگوری مچ نشوند، `category = "Uncategorized"` می‌گیرند.
-- تمام regexها **case-insensitive** اعمال می‌شوند (در Python با `re.IGNORECASE`).
-- **ذخیره‌سازی دسته:** مقدار `category` هنگام درج در ستون `activities.category` ذخیره می‌شود (نمودارها از این ستون می‌خوانند → سریع). باز‌دسته‌بندی از طریق FR-3 انجام می‌شود.
+- **Matching logic structure:**
+  - Each category can have **multiple rules** → rules within a category use **OR** logic (any match = category matched).
+  - Within a rule, `process_regex` and `title_regex` must **both** match (AND). If one is `NULL`, that condition is ignored (only the other is evaluated).
+- **Category priority:** Categories are ordered by `priority`; the **first matching category wins**.
+- **Default behavior:** Activities that match no category get `category = "Uncategorized"`.
+- All regexes are applied **case-insensitively** (using `re.IGNORECASE` in Python).
+- **Category storage:** The `category` value is stored in `activities.category` at insert time (charts read from this column → fast). Re-categorization is handled via FR-3.
 
-### FR-3 — باز‌دسته‌بندی خودکار (Recompute)
-- هر activity یک `rule_version` دارد (نسخه‌ی rules هنگام دسته‌بندی آن رکورد).
-- هنگام **افزودن/ویرایش/حذف rule**، تغییر `priority` یک کتگوری، یا فعال/غیرفعال‌کردن کتگوری، مقدار `meta.rule_version` در جدول `meta` **increment** می‌شود.
-- یک **background worker چانک‌چانک** (هر بسته ۱۰۰۰ ردیف، با yield بین بسته‌ها برای جلوگیری از قفل‌کردن DB) تنها activityهایی که `rule_version < current_rule_version` را باز‌دسته‌بندی می‌کند.
-- **رفتار در حین recompute:** نمودارها از ستون `category` می‌خوانند که ممکن است موقتاً حاوی دسته‌ی قدیمی باشد. این رفتار **پذیرفته‌شده** است، چون regexها نادرتاً تغییر می‌کنند و با مدل event-based تعداد ردیف‌ها کم است (ده‌ها هزار در سال) → recompute کل تاریخ چند ثانیه طول می‌کشد.
-- پس از پایان recompute، یک notification در داشبورد نمایش داده می‌شود («داده‌ها به‌روزرسانی شد»).
+### FR-3 — Automatic Recompute
+- Each activity has a `rule_version` (the version of rules at the time that record was categorized).
+- When a rule is **added/edited/deleted**, a category's `priority` changes, or a category is enabled/disabled, the `meta.rule_version` value in the `meta` table is **incremented**.
+- A **background worker chunk-by-chunk** (each batch of 1000 rows, with yields between batches to avoid DB locking) re-categorizes only activities where `rule_version < current_rule_version`.
+- **Behavior during recompute:** Charts read from the `category` column, which may temporarily contain old categories. This behavior is **accepted** since regexes rarely change and with the event-based model the row count is low (tens of thousands per year) → full history recompute takes a few seconds.
+- After recompute completes, a notification is shown in the dashboard ("Data updated").
 
-### FR-4 — نمودار مصرف
-- داشبورد بتواند زمان صرف‌شده در هر دسته را در بازه‌های زیر نمایش دهد:
-  - **امروز**، **دیروز**.
-  - **هفته‌ی جاری / هفته‌ی گذشته**.
-  - **ماه جاری / ماه گذشته**.
-  - **بازه دلخواه** با انتخاب تاریخ شروع و پایان.
-- **انواع نمودار:**
-  - **Pie / Donut**: سهم کلی هر دسته در بازه‌ی انتخابی.
-  - **Timeline / Stacked Bar**: توزیع فعالیت‌ها در طول روز (محور افقی = زمان با قابلیت zoom/brush).
-- مدت زمان هر فعالیت از ستون `activities.duration_sec` خوانده می‌شود (محاسبه‌شده هنگام بسته شدن رکورد، طبق FR-1).
-- **فعالیت باز (open-ended):** رکوردی که `end_ts = NULL` است، در نمودار با `now − start_ts` به‌عنوان مدت برآوردی لحاظ می‌شود (با علامت «zنده» یا برچسب «در حال انجام»).
-- اعداد به‌صورت خوانا نمایش داده شوند (مثلاً «۱ ساعت ۲۳ دقیقه» نه «۵۰۴۰ ثانیه»).
+### FR-4 — Usage Charts
+- The dashboard must display time spent by category over the following ranges:
+  - **Today**, **Yesterday**.
+  - **Current week / Last week**.
+  - **Current month / Last month**.
+  - **Custom range** with start and end date selection.
+- **Chart types:**
+  - **Pie / Donut**: overall share of each category in the selected range.
+  - **Timeline / Stacked Bar**: activity distribution throughout the day (x-axis = time with zoom/brush support).
+- Activity durations are read from `activities.duration_sec` (calculated when the record is closed, per FR-1).
+- **Open-ended activity:** A record with `end_ts = NULL` is included in charts with `now − start_ts` as the estimated duration (marked as "live" or "In progress").
+- Numbers should be displayed in human-readable format (e.g., "1h 23m" not "5040s").
 
-### FR-5 — اسکرین‌شات دوره‌ای
-- هر **۱۰ ثانیه** (قابل پیکربندی) از **پنجره‌ی فعال** اسکرین‌شات گرفته می‌شود.
-- **سطوح کیفیت** (قابل پیکربندی):
-  | سطح | حداکثر عرض (px) | JPEG quality |
+### FR-5 — Periodic Screenshots
+- Screenshots of the **active window** are taken every **10 seconds** (configurable).
+- **Quality levels** (configurable):
+  | Level | Max Width (px) | JPEG Quality |
   |---|---|---|
-  | `low` (پیش‌فرض) | 800 | 30 |
+  | `low` (default) | 800 | 30 |
   | `medium` | 1280 | 60 |
   | `high` | 1920 | 85 |
-  - اگر عرض تصویر اصلی از حداکثر عرض بیشتر باشد، تصویر با حفظ نسبت ابعاد کوچک (resize) می‌شود.
-- فرمت ذخیره‌سازی: **JPEG** روی دیسک؛ در دیتابیس فقط مسیر فایل ثبت می‌شود.
-- نام‌گذاری فایل: `screenshots/YYYY/MM/DD-HHMMSS-<short_id>.jpg`.
-- **لیست استثنا (`screenshot_exclusions`):** اگر `process` یا `title` پنجره‌ی فعال با هر کدام از الگوهای استثنا مچ شود، از آن عکس گرفته **نمی‌شود** (اما activity همچنان ثبت می‌شود).
-- در صورت خطا در گرفتن عکس (مثلاً پنجره بسته شد، عدم دسترسی)، خطا **لاگ** شود و روند متوقف **نشود**.
-- هر اسکرین‌شات به activity جاری (`end_ts IS NULL`) با ستون `screenshots.activity_id` لینک می‌شود.
+  - If the original image width exceeds the max, it is downscaled preserving aspect ratio.
+- Storage format: **JPEG** on disk; only the file path is stored in the database.
+- File naming: `screenshots/YYYY/MM/DD-HHMMSS-<short_id>.jpg`.
+- **Exclusion list (`screenshot_exclusions`):** If the active window's `process` or `title` matches any exclusion pattern, the screenshot is **not** taken (but the activity is still recorded).
+- If capturing fails (e.g., window closed, access denied), the error must be **logged** and processing must **not stop**.
+- Each screenshot is linked to the current activity (`end_ts IS NULL`) via `screenshots.activity_id`.
 
-### FR-6 — مدیریت ذخیره‌سازی (Retention)
-- پاکسازی خودکار اسکرین‌شات‌های قدیمی‌تر از `retention_days` (پیش‌فرض: **۷ روز**).
-- پاکسازی به‌صورت پس‌زمینه‌ای، **هر ساعت** اجرا شود.
-- حذف شامل **هم فایل** و **هم رکورد DB** باشد.
-- **فعالیت‌ها (activities) هرگز به‌صورت خودکار حذف نمی‌شوند** — تنها اسکرین‌شات‌ها مشمول retention هستند.
+### FR-6 — Storage Management (Retention)
+- Automatically purge screenshots older than `retention_days` (default: **7 days**).
+- Purging runs in the background **every hour**.
+- Deletion includes **both the file** and the **DB record**.
+- **Activities are never automatically deleted** — only screenshots are subject to retention.
 
-### FR-7 — رابط کاربری
+### FR-7 — User Interface
 - **System Tray Icon (PySide6 `QSystemTrayIcon`)**:
-  - نمایش وضعیت: tracking فعال / غیرفعال (با تغییر آیکون).
-  - شروع/توقف tracking.
-  - باز کردن داشبورد.
-  - دسترسی سریع به تنظیمات.
-  - خروج از اپ.
-- **داشبورد (Angular در `QWebEngineView`)** با چهار صفحه:
-  1. **Overview**: انتخاب بازه + نمودار Pie + نمودار Timeline.
-  2. **Categories**: مدیریت کتگوری‌ها و ruleها (CRUD) + **تست زنده‌ی regex** روی یک نمونه‌ی فرضی یا چند نمونه‌ی واقعی اخیر.
-  3. **Screenshots**: گالری اسکرین‌شات‌ها با فیلتر بازه و دسته.
-  4. **Settings**: ویرایش کانفیگ (فاصله‌ی sampling، کیفیت عکس، retention، مسیر ذخیره‌سازی، لیست استثنا).
+  - Status display: tracking active / inactive (icon changes).
+  - Start/stop tracking.
+  - Open dashboard.
+  - Quick access to settings.
+  - Quit app.
+- **Dashboard (Angular in `QWebEngineView`)** with four pages:
+  1. **Overview**: range selection + Pie chart + Timeline chart.
+  2. **Categories**: manage categories and rules (CRUD) + **live regex testing** on sample or recent activities.
+  3. **Screenshots**: screenshot gallery with range and category filters.
+  4. **Settings**: edit config (sampling interval, image quality, retention, storage path, exclusion list).
 
-### FR-8 — کانفیگ (TOML)
-- کانفیگ در فایل `~/.timetracker/config.toml` ذخیره می‌شود.
-- مقادیر قابل تغییر از طریق داشبورد باشند (با ذخیره‌ی مجدد فایل TOML).
-- یک فایل `config.example.toml` در ریپو به‌عنوان قالب ارائه شود.
-- در صورت نبود فایل کانفیگ، از **مقادیر پیش‌فرض** استفاده شود و فایل با این مقادیر ایجاد شود.
-- **نکته درباره‌ی rules:** ruleهای موجود در `config.toml` **تنها در اولین اجرا** به جداول `categories`/`rules` همگام‌سازی می‌شوند (seed اولیه). پس از آن، مدیریت rules از طریق داشبورد (و در نهایت DB) انجام می‌شود تا تغییرات دستی کاربر در فایل کانفیگ با داده‌های DB تداخل نکند. یک گزینه‌ی `--reseed-rules` در CLI برای بازنویسی اجباری وجود دارد.
+### FR-8 — Configuration (TOML)
+- Config is stored in `~/.timetracker/config.toml`.
+- Values are editable through the dashboard (rewrites the TOML file).
+- A `config.example.toml` file is provided in the repo as a template.
+- If the config file is missing, **default values** are used and the file is created with those values.
+- **Note on rules:** Rules in `config.toml` are synced to the `categories`/`rules` tables **only on first run** (initial seed). After that, rules are managed through the dashboard (and ultimately the DB), so manual edits to the config file don't conflict with DB data. A `--reseed-rules` CLI option exists for forced rewrite.
 
 ---
 
-## ۳. الزامات غیرعملیاتی (Non-Functional Requirements)
+## 3. Non-Functional Requirements
 
-### NFR-1 — سازگاری پلتفرم
-| پلتفرم | سطح پشتیبانی |
+### NFR-1 — Platform Compatibility
+| Platform | Support Level |
 |---|---|
-| Windows 10/11 (x64) | **کامل** |
-| Linux X11 (KDE Plasma) | **کامل** |
-| Linux Wayland (KDE Plasma 6) | **کامل** (با KWin DBus API، بدون grim/portal) |
-| macOS | خارج از اسکوپ v1 |
+| Windows 10/11 (x64) | **Full** |
+| Linux X11 (KDE Plasma) | **Full** |
+| Linux Wayland (KDE Plasma 6) | **Full** (KWin DBus API, no grim/portal) |
+| macOS | Out of scope v1 |
 
-### NFR-2 — کارایی
-- مصرف CPU در حالت idle (صرفاً polling تشخیص تغییر) کمتر از **۲٪** روی سخت‌افزار معمولی.
-- مصرف RAM کل اپ کمتر از **۳۰۰ مگابایت** (بدون احتساب داشبورد وب در QWebEngineView).
-- گرفتن اسکرین‌شات + فشرده‌سازی کمتر از **۱ ثانیه**.
-- نمونه‌برداری نباید روی تجربه‌ی کاربر سایر اپ‌ها اثر بگذارد.
-- کوئری‌های aggregate نمودار روی بازه‌ی یک ماه باید در کمتر از **۲۰۰ میلی‌ثانیه** تکمیل شوند (با ایندکس مناسب).
+### NFR-2 — Performance
+- CPU usage in idle state (just polling for change detection) under **2%** on typical hardware.
+- Total app RAM usage under **300 MB** (excluding the web dashboard in QWebEngineView).
+- Screenshot capture + compression under **1 second**.
+- Sampling must not impact the user experience of other applications.
+- Chart aggregate queries over a one-month range must complete in under **200 ms** (with proper indexing).
 
-### NFR-3 — حریم خصوصی
-- تمام داده‌ها **صرفاً محلی** ذخیره می‌شوند؛ هیچ ارسالی به شبکه صورت نمی‌گیرد.
-- تنها ارتباط شبکه‌ای: پورت `localhost` برای داشبورد (به FastAPI).
-- **لیست استثنا** برای جلوگیری از عکس‌برداری از اپ‌های حساس (بانک، پیام‌رسان و...).
-- اسکرین‌شات‌ها به‌صورت پیش‌فرض کیفیت پایین دارند.
-- هیچ telemetry/analytics خارجی وجود ندارد.
+### NFR-3 — Privacy
+- All data is stored **entirely locally**; no data is sent over the network.
+- The only network communication is the `localhost` port for the dashboard (to FastAPI).
+- **Exclusion list** prevents screenshots of sensitive apps (banking, messaging, etc.).
+- Screenshots are low quality by default.
+- No external telemetry/analytics.
 
-### NFR-4 — قابلیت اطمینان
-- در صورت بسته شدن ناگهانی اپ، داده‌های قبلی نباید آسیب ببینند (استفاده از تراکنش SQLite + WAL mode).
-- **رفتار هنگام راه‌اندازی مجدد:** اگر رکوردی با `end_ts = NULL` از جلسه‌ی قبلی باقی مانده باشد، هنگام startup به‌صورت خودکار با `end_ts = last_shutdown_estimate` بسته شود (یا با زمان شروع جلسه‌ی جدید).
-- خطاهای پلتفرم (مثلاً عدم دسترسی به پنجره، شکست در اسکرین‌شات) نباید باعث کرش اپ شوند؛ **لاگ** شوند و ادامه دهند.
+### NFR-4 — Reliability
+- If the app terminates unexpectedly, previous data must not be corrupted (use SQLite transactions + WAL mode).
+- **Behavior on restart:** If a record with `end_ts = NULL` remains from a previous session, it is automatically closed on startup with `end_ts = last_shutdown_estimate` (or the new session start time).
+- Platform errors (e.g., window access denied, screenshot failure) must not crash the app; they must be **logged** and processing must continue.
 
-### NFR-5 — بسته‌بندی و توزیع
-- ارائه‌ی executable مستقل برای ویندوز (`.exe` یا نصب‌کننده) و لینوکس (AppImage یا tarball).
-- وابستگی‌ها (از جمله Angular build و PySide6) تا حد امکان **باندل** شوند تا کاربر نیازی به نصب جداگانه نداشته باشد.
-- اندازه‌ی بسته‌ی نهایی به دلیل embed کردن Chromium (QWebEngineView) انتظاراً **۸۰–۱۵۰ مگابایت** خواهد بود.
+### NFR-5 — Packaging and Distribution
+- Provide standalone executables for Windows (`.exe` or installer) and Linux (AppImage or tarball).
+- Dependencies (including Angular build and PySide6) should be **bundled** as much as possible so users don't need separate installations.
+- The final package size is expected to be **80–150 MB** due to embedded Chromium (QWebEngineView).
 
 ---
 
-## ۴. معماری (Architecture)
+## 4. Architecture
 
-### ۴.۱ — نمای کلی
+### 4.1 — High-Level Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -168,7 +167,7 @@
 │  ┌───────────────────────────┼─────────────────────────────────┐ │
 │  │                   Persistence Layer                           │ │
 │  │             SQLModel / SQLAlchemy → SQLite (WAL)              │ │
-│  │             (قابل سوییچ به Postgres با connection string)     │ │
+│  │             (swappable to Postgres via connection string)     │ │
 │  └───────────────────────────┬─────────────────────────────────┘ │
 │                              │                                     │
 │  ┌──────────────┬────────────┼─────────────┬────────────────────┐ │
@@ -187,109 +186,111 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### ۴.۲ — لایه‌ی پلتفرم (Platform Abstraction Layer)
-یک **اینترفیس واحد** که هر بک‌اند پلتفرم آن را پیاده‌سازی می‌کند:
+### 4.2 — Platform Abstraction Layer
+A **unified interface** that each platform backend implements:
 
 ```python
 @dataclass
 class WindowInfo:
-    process: str | None    # نام پروسس (مثلاً "code")؛ None اگر پنجره‌ای فعال نباشد
-    title: str | None      # عنوان پنجره
+    process: str | None    # Process name (e.g. "code"); None if no active window
+    title: str | None      # Window title
 
 class PlatformBackend(Protocol):
     def get_active_window(self) -> WindowInfo | None:
-        """عنوان و نام پروسس پنجره‌ی فعال؛ None اگر پنجره‌ای فعال نباشد."""
+        """Title and process name of the active window; None if no active window."""
         ...
 
     def capture_active_window(self, quality: "ScreenshotQuality") -> bytes | None:
-        """اسکرین‌شات JPEG (بایت‌های خام) از پنجره‌ی فعال؛ None در صورت خطا."""
+        """JPEG screenshot (raw bytes) of the active window; None on failure."""
         ...
 ```
 
-- **Windows**: `GetForegroundWindow` + `GetWindowText` + `GetWindowThreadProcessId` (با ctypes یا pywin32) و `psutil` برای نام پروسس؛ اسکرین‌شات با `BitBlt` یا `mss`.
-- **Linux X11**: `python-xlib` با پروتکل EWMH (`_NET_ACTIVE_WINDOW`, `_NET_WM_PID`); اسکرین‌شات از پنجره‌ی خاص با Xlib یا `mss`.
-- **Linux Wayland (KDE Plasma 6)**: DBus به `org.kde.KWin` برای پنجره‌ی فعال (`activeWindow` → title + `pid` → `psutil`)، هندسه‌ی پنجره (`geometry`)، و اسکرین‌شات (`screenshotArea` / `screenshotWindow` بدون نیاز به تأیید کاربر).
-- **Factory** (`platform/factory.py`): انتخاب خودکار بک‌اند بر اساس `sys.platform`، `WAYLAND_DISPLAY`، `KDE_FULL_SESSION` و وجود KWin روی DBus.
+- **Windows**: `GetForegroundWindow` + `GetWindowText` + `GetWindowThreadProcessId` (via ctypes or pywin32) and `psutil` for process name; screenshot with `BitBlt` or `mss`.
+- **Linux X11**: `python-xlib` with EWMH protocol (`_NET_ACTIVE_WINDOW`, `_NET_WM_PID`); screenshot of specific window with Xlib or `mss`.
+- **Linux Wayland (KDE Plasma 6)**: DBus to `org.kde.KWin` for active window (`activeWindow` → title + `pid` → `psutil`), window geometry (`geometry`), and screenshot (`screenshotArea` / `screenshotWindow` without user prompt).
+- **Factory** (`platform/factory.py`): Auto-select backend based on `sys.platform`, `WAYLAND_DISPLAY`, `KDE_FULL_SESSION`, and KWin presence on DBus.
 
-### ۴.۳ — حلقه‌ی اجرا و Threading
-- **Main thread**: `QApplication` و event loop. تعامل کاربری، tray، پنجره‌ی داشبورد. (Qt **باید** در main thread باشد.)
-- **Sampler thread**: حلقه‌ی `while running: info = get_active_window(); if changed: close_prev(); open_new(); sleep(poll_interval)`.
-- **Screenshot thread**: حلقه‌ی `while running: capture(); sleep(screenshot_interval)`.
-- **Recompute worker**: idle تا زمانی که تغییر rule شناسایی شود، سپس پردازش چانک‌چانک.
-- **Retention worker**: هر ساعت اجرا می‌شود.
-- **FastAPI thread**: اجرای `uvicorn` در یک thread جداگانه برای سرو API و فایل‌های static.
-- هماهنگی بین threadها با `threading.Event` برای stop و یک صف/کانال برای اعمال تغییرات کانفیگ.
+### 4.3 — Runtime and Threading
+- **Main thread**: `QApplication` and event loop. User interaction, tray, dashboard window. (Qt **must** be in the main thread.)
+- **Sampler thread**: Loop `while running: info = get_active_window(); if changed: close_prev(); open_new(); sleep(poll_interval)`.
+- **Screenshot thread**: Loop `while running: capture(); sleep(screenshot_interval)`.
+- **Recompute worker**: Idle until a rule change is detected, then chunked processing.
+- **Retention worker**: Runs every hour.
+- **FastAPI thread**: Runs `uvicorn` in a separate thread to serve API and static files.
+- Coordination between threads via `threading.Event` for stop and a queue/channel for config changes.
 
-### ۴.۴ — دیتابیس
-- **موتور**: SQLite با **WAL mode** برای همزمانی خواندن/نوشتن بدون قفل.
-- **ORM**: SQLModel (روی SQLAlchemy) برای قابلیت تعویض به Postgres با تغییر connection string.
-- **دلیل انتخاب SQLite:** چون دسته‌بندی در زمان نوشتن (توسط Python) انجام می‌شود، نیازی به regex بومی در سطح DB نیست؛ پس مزیت اصلی Postgres از بین می‌رود و SQLite برای اپ شخصی تک‌کاربره ساده‌تر است.
-
----
-
-## ۵. مدل داده و ذخیره‌سازی
-
-### ۵.۱ — جدول `activities` (قلب داده)
-| ستون | نوع | توضیح |
-|---|---|---|
-| `id` | INTEGER PK | خودکار |
-| `start_ts` | TEXT (ISO8601 UTC) | شروع فعالیت |
-| `end_ts` | TEXT NULL | پایان؛ **NULL = در حال انجام** |
-| `duration_sec` | INTEGER NULL | `end_ts − start_ts` (هنگام بستن محاسبه می‌شود) |
-| `process` | TEXT | نام پروسس (NULL برای Idle) |
-| `title` | TEXT | عنوان پنجره |
-| `category` | TEXT | دسته‌ی ذخیره‌شده (recompute هنگام تغییر rule) |
-| `rule_version` | INTEGER | نسخه‌ی rules هنگام دسته‌بندی |
-
-**ایندکس‌ها:** `idx_activities_start_ts`, `idx_activities_category`, `idx_activities_rule_version`.
-
-### ۵.۲ — جدول `screenshots`
-| ستون | نوع | توضیح |
-|---|---|---|
-| `id` | INTEGER PK | خودکار |
-| `activity_id` | INTEGER FK → activities | activity جاری هنگام عکس‌برداری |
-| `timestamp` | TEXT (ISO8601 UTC) | زمان عکس‌برداری |
-| `file_path` | TEXT | مسیر فایل JPEG روی دیسک |
-| `file_size` | INTEGER | اندازه‌ی فایل به بایت |
-
-**ایندکس‌ها:** `idx_screenshots_activity_id`, `idx_screenshots_timestamp`.
-
-### ۵.۳ — جدول `categories`
-| ستون | نوع | توضیح |
-|---|---|---|
-| `id` | INTEGER PK | خودکار |
-| `name` | TEXT UNIQUE | نام دسته (مثلاً «کدنویسی») |
-| `color` | TEXT | رنگ هگز (مثلاً `#4CAF50`) |
-| `priority` | INTEGER | ترتیب تطبیق (کمتر = زودتر) |
-| `enabled` | BOOLEAN | فعال/غیرفعال |
-
-### ۵.۴ — جدول `rules`
-| ستون | نوع | توضیح |
-|---|---|---|
-| `id` | INTEGER PK | خودکار |
-| `category_id` | INTEGER FK → categories | کتگوری والد |
-| `process_regex` | TEXT NULL | الگوی regex روی نام پروسس (NULL = نادیده) |
-| `title_regex` | TEXT NULL | الگوی regex روی عنوان (NULL = نادیده) |
-
-### ۵.۵ — جدول `meta`
-| ستون | نوع | توضیح |
-|---|---|---|
-| `key` | TEXT PK | کلید (مثلاً `rule_version`) |
-| `value` | TEXT | مقدار |
-
-### ۵.۶ — مکان ذخیره‌سازی
-- **دیتابیس:** `~/.timetracker/data.db`
-- **اسکرین‌شات‌ها:** `~/.timetracker/screenshots/YYYY/MM/` با نام فایل `DD-HHMMSS-<short_id>.jpg`.
-- تمام مسیرها در کانفیگ قابل تغییر باشند.
+### 4.4 — Database
+- **Engine**: SQLite with **WAL mode** for concurrent read/write without locking.
+- **ORM**: SQLModel (on SQLAlchemy) for ability to switch to Postgres by changing the connection string.
+- **Rationale for SQLite:** Since categorization happens at write time (by Python), there's no need for native regex at the DB level; thus Postgres' main advantage is moot, and SQLite is simpler for a single-user personal app.
 
 ---
 
-## ۶. فایل کانفیگ نمونه (`config.example.toml`)
+## 5. Data Model and Storage
+
+### 5.1 — Table `activities` (core data)
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto |
+| `start_ts` | TEXT (ISO8601 UTC) | Activity start |
+| `end_ts` | TEXT NULL | End; **NULL = in progress** |
+| `duration_sec` | INTEGER NULL | `end_ts − start_ts` (calculated on close) |
+| `process` | TEXT | Process name (NULL for Idle) |
+| `title` | TEXT | Window title |
+| `category` | TEXT | Stored category (recomputed on rule change) |
+| `rule_version` | INTEGER | Rule version at categorization time |
+| `job` | TEXT NULL | Assigned job name |
+| `job_description` | TEXT NULL | Job description |
+
+**Indexes:** `idx_activities_start_ts`, `idx_activities_category`, `idx_activities_rule_version`.
+
+### 5.2 — Table `screenshots`
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto |
+| `activity_id` | INTEGER FK → activities | Current activity at capture time |
+| `timestamp` | TEXT (ISO8601 UTC) | Capture time |
+| `file_path` | TEXT | JPEG file path on disk |
+| `file_size` | INTEGER | File size in bytes |
+
+**Indexes:** `idx_screenshots_activity_id`, `idx_screenshots_timestamp`.
+
+### 5.3 — Table `categories`
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto |
+| `name` | TEXT UNIQUE | Category name (e.g. "Coding") |
+| `color` | TEXT | Hex color (e.g. `#4CAF50`) |
+| `priority` | INTEGER | Match order (lower = checked first) |
+| `enabled` | BOOLEAN | Enabled/Disabled |
+
+### 5.4 — Table `rules`
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto |
+| `category_id` | INTEGER FK → categories | Parent category |
+| `process_regex` | TEXT NULL | Regex pattern on process name (NULL = ignored) |
+| `title_regex` | TEXT NULL | Regex pattern on title (NULL = ignored) |
+
+### 5.5 — Table `meta`
+| Column | Type | Description |
+|---|---|---|
+| `key` | TEXT PK | Key (e.g. `rule_version`) |
+| `value` | TEXT | Value |
+
+### 5.6 — Storage Locations
+- **Database:** `~/.timetracker/data.db`
+- **Screenshots:** `~/.timetracker/screenshots/YYYY/MM/` with filename `DD-HHMMSS-<short_id>.jpg`.
+- All paths are configurable.
+
+---
+
+## 6. Example Config File (`config.example.toml`)
 
 ```toml
 [sampling]
-poll_interval_sec       = 1        # فاصله‌ی poll برای تشخیص تغییر پنجره
-screenshot_interval_sec = 10       # فاصله‌ی اسکرین‌شات
+poll_interval_sec       = 1        # Poll interval for window change detection
+screenshot_interval_sec = 10       # Screenshot interval
 screenshot_quality      = "low"    # low | medium | high
 
 [storage]
@@ -300,21 +301,21 @@ retention_days = 7
 [ui]
 open_dashboard_on_start = false
 
-# این ruleها تنها در اولین اجرا به DB همگام‌سازی می‌شوند.
-# ویرایش پس از آن از داشبورد انجام شود.
+# These rules are synced to the DB only on first run.
+# Edit them later via the dashboard.
 [[rules]]
-name          = "کدنویسی"
+name          = "Coding"
 process_regex = "code|jetbrains|cursor"
 color         = "#4CAF50"
 
 [[rules]]
-name          = "مرورگر"
+name          = "Browser"
 process_regex = "chrome|firefox|edge"
 title_regex   = ".*"
 color         = "#2196F3"
 
 [[rules]]
-name          = "ترمینال"
+name          = "Terminal"
 process_regex = "kitty|alacritty|konsole|wezterm"
 color         = "#FF9800"
 
@@ -328,52 +329,52 @@ title_regex   = ".*"
 
 ---
 
-## ۷. API (FastAPI روی `/api`)
+## 7. API (FastAPI on `/api`)
 
-همه‌ی endpointها روی `http://127.0.0.1:<port>/api`. پورت از کانفیگ یا تصادفی (0).
+All endpoints on `http://127.0.0.1:<port>/api`. Port from config or random (0).
 
-| روش | مسیر | توضیح |
+| Method | Path | Description |
 |---|---|---|
-| GET | `/api/stats/summary` | خلاصه‌ی بازه (قابل فیلتر با `?start=&end=`) |
-| GET | `/api/stats/timeline` | داده‌ی تایم‌لاین دسته‌بندی‌شده (برای نمودار زمانی) |
-| GET | `/api/stats/breakdown` | تفکیک زمان بر اساس دسته (برای نمودار Pie/Donut) |
-| GET | `/api/categories` | لیست کتگوری‌ها |
-| POST | `/api/categories` | افزودن کتگوری |
-| PUT | `/api/categories/{id}` | ویرایش کتگوری |
-| DELETE | `/api/categories/{id}` | حذف کتگوری |
-| GET | `/api/rules` | لیست تمام ruleها |
-| POST | `/api/rules` | افزودن rule |
-| PUT | `/api/rules/{id}` | ویرایش rule |
-| DELETE | `/api/rules/{id}` | حذف rule |
-| POST | `/api/rules/test` | تست regex روی نمونه‌ی فرضی یا فعالیت‌های اخیر |
-| GET | `/api/screenshots` | لیست اسکرین‌شات‌ها (فیلتر بازه، صفحه‌بندی) |
-| GET | `/api/screenshots/{id}` | یک رکورد اسکرین‌شات |
-| GET | `/api/screenshots/{id}/file` | خود فایل JPEG |
-| GET | `/api/config` | کانفیگ فعلی |
-| PUT | `/api/config` | به‌روزرسانی کانفیگ |
-| GET | `/api/status` | وضعیت tracking (فعال/غیرفعال، uptime، آمار) |
-| POST | `/api/tracking/start` | شروع tracking |
-| POST | `/api/tracking/stop` | توقف tracking |
-| GET | `/api/activities` | لیست فعالیت‌ها (فیلتر بازه + صفحه‌بندی؛ برای مرور/debug) |
+| GET | `/api/stats/summary` | Range summary (filterable with `?start=&end=`) |
+| GET | `/api/stats/timeline` | Categorized timeline data (for time chart) |
+| GET | `/api/stats/breakdown` | Time breakdown by category (for Pie/Donut chart) |
+| GET | `/api/categories` | List categories |
+| POST | `/api/categories` | Add category |
+| PUT | `/api/categories/{id}` | Edit category |
+| DELETE | `/api/categories/{id}` | Delete category |
+| GET | `/api/rules` | List all rules |
+| POST | `/api/rules` | Add rule |
+| PUT | `/api/rules/{id}` | Edit rule |
+| DELETE | `/api/rules/{id}` | Delete rule |
+| POST | `/api/rules/test` | Test regex on sample or recent activities |
+| GET | `/api/screenshots` | List screenshots (range filter, pagination) |
+| GET | `/api/screenshots/{id}` | A screenshot record |
+| GET | `/api/screenshots/{id}/image` | The JPEG file itself |
+| GET | `/api/config` | Current config |
+| PUT | `/api/config` | Update config |
+| GET | `/api/status` | Tracking status (active/inactive, uptime, stats) |
+| POST | `/api/tracking/start` | Start tracking |
+| POST | `/api/tracking/stop` | Stop tracking |
+| GET | `/api/activities` | List activities (range filter + pagination; for browsing/debug) |
 
 ---
 
-## ۸. داشبورد (Angular)
+## 8. Dashboard (Angular)
 
-- **فریم‌ورک:** Angular (latest stable)، **standalone components**.
-- **نمودار:** **ECharts** با `ngx-echarts` (به‌خاطر قابلیت zoom/brush قوی روی محور زمان).
-- **استایل:** Tailwind CSS (اختیاری ولی پیشنهادی).
-- **بیلد:** `ng build` → فایل‌های static در `dashboard/dist/`، توسط FastAPI سرو می‌شوند.
-- **ارتباط با بک‌اند:** `HttpClient` به `/api/*`.
-- **صفحات اصلی:**
-  1. **Overview**: انتخاب بازه (today/yesterday/week/month/custom) + نمودار Pie + نمودار Timeline.
-  2. **Categories**: مدیریت کتگوری‌ها و ruleها (CRUD) + تست زنده‌ی regex.
-  3. **Screenshots**: گالری با فیلتر بازه و دسته.
-  4. **Settings**: ویرایش کانفیگ + تغییر مسیرها و کیفیت‌ها.
+- **Framework:** Angular (latest stable), **standalone components**.
+- **Charts:** **ECharts** with `ngx-echarts` (for strong zoom/brush capabilities on the time axis).
+- **Styling:** Tailwind CSS.
+- **Build:** `ng build` → static files in `dashboard/dist/`, served by FastAPI.
+- **Backend communication:** `HttpClient` to `/api/*`.
+- **Main pages:**
+  1. **Overview**: range selection (today/yesterday/week/month/custom) + Pie chart + Timeline chart.
+  2. **Categories**: manage categories and rules (CRUD) + live regex testing.
+  3. **Screenshots**: gallery with range and category filters.
+  4. **Settings**: edit config + change paths and quality settings.
 
 ---
 
-## ۹. ساختار پروژه
+## 9. Project Structure
 
 ```
 time-tracker/
@@ -381,37 +382,37 @@ time-tracker/
 ├── README.md
 ├── config.example.toml
 ├── docs/
-│   ├── SPECIFICATION.md        ← این فایل
-│   └── PLAN.md                 ← برنامه‌ی پیاده‌سازی
+│   ├── SPECIFICATION.md        ← This file
+│   └── PLAN.md                 ← Implementation plan
 ├── src/timetracker/
 │   ├── __init__.py
-│   ├── __main__.py             # نقطه‌ی ورود: QApplication + threadها
-│   ├── config.py               # بارگذاری/ذخیره‌ی کانفیگ + همگام‌سازی اولیه‌ی rules
+│   ├── __main__.py             # Entry point: QApplication + threads
+│   ├── config.py               # Config load/save + initial rules sync
 │   ├── platform/
 │   │   ├── __init__.py
 │   │   ├── base.py             # PlatformBackend Protocol + WindowInfo
-│   │   ├── windows.py          # بک‌اند ویندوز
-│   │   ├── linux_x11.py        # بک‌اند X11
-│   │   ├── linux_wayland.py    # بک‌اند Wayland (KDE KWin DBus)
-│   │   └── factory.py          # انتخاب خودکار بک‌اند
+│   │   ├── windows.py          # Windows backend
+│   │   ├── linux_x11.py        # X11 backend
+│   │   ├── linux_wayland.py    # Wayland backend (KDE KWin DBus)
+│   │   └── factory.py          # Auto-select backend
 │   ├── db/
 │   │   ├── __init__.py
 │   │   ├── models.py           # SQLModel: Activity, Screenshot, Category, Rule, Meta
-│   │   ├── session.py          # engine + session factory (قابل تعویض)
-│   │   └── migrations.py       # ساخت/به‌روزرسانی schema + ایندکس‌ها
+│   │   ├── session.py          # Engine + session factory (swappable)
+│   │   └── migrations.py       # Schema creation/update + indexes
 │   ├── tracking/
 │   │   ├── __init__.py
-│   │   ├── sampler.py          # حلقه‌ی event-based sampling
-│   │   ├── categorizer.py      # بارگذاری rules + تطبیق regex
-│   │   └── recompute.py        # باز‌دسته‌بندی چانک‌چانک
+│   │   ├── sampler.py          # Event-based sampling loop
+│   │   ├── categorizer.py      # Rule loading + regex matching
+│   │   └── recompute.py        # Chunked re-categorization
 │   ├── screenshots/
 │   │   ├── __init__.py
-│   │   ├── capture.py          # گرفتن + فشرده‌سازی + ذخیره
-│   │   └── retention.py        # پاکسازی خودکار
+│   │   ├── capture.py          # Capture + compress + save
+│   │   └── retention.py        # Auto purge
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── server.py           # FastAPI app + static serving
-│   │   ├── deps.py             # dependency injection
+│   │   ├── deps.py             # Dependency injection
 │   │   └── routes/
 │   │       ├── __init__.py
 │   │       ├── stats.py
@@ -424,7 +425,7 @@ time-tracker/
 │       ├── __init__.py
 │       ├── tray.py             # QSystemTrayIcon
 │       └── dashboard_window.py # QMainWindow + QWebEngineView
-├── dashboard/                  # پروژه‌ی Angular
+├── dashboard/                  # Angular project
 │   ├── angular.json
 │   ├── package.json
 │   └── src/
@@ -437,85 +438,85 @@ time-tracker/
 │       │   └── models/         # TypeScript interfaces
 │       └── styles.css
 └── tests/
-    ├── unit/                   # تست‌های واحد
-    └── integration/            # تست‌های integration
+    ├── unit/                   # Unit tests
+    └── integration/            # Integration tests
 ```
 
 ---
 
-## ۱۰. وابستگی‌ها (Dependencies)
+## 10. Dependencies
 
 ### Python (`pyproject.toml`)
-| پکیج | نسخه | کاربرد |
+| Package | Version | Purpose |
 |---|---|---|
-| `PySide6` | ≥6.6 | Qt UI، tray، QWebEngineView |
-| `fastapi` | ≥0.110 | API بک‌اند |
-| `uvicorn` | ≥0.27 | ASGI server برای FastAPI |
-| `sqlmodel` | ≥0.0.16 | ORM (روی SQLAlchemy) |
-| `pydantic` | ≥2.6 | validation کانفیگ و API |
-| `psutil` | ≥5.9 | نام پروسس (کراس‌پلتفرم) |
-| `Pillow` | ≥10 | فشرده‌سازی اسکرین‌شات |
-| `mss` | ≥9 | اسکرین‌شات کراس‌پلتفرم |
-| `python-xlib` | ≥0.33 | **فقط لینوکس/X11**: تشخیص پنجره |
-| `pywin32` | ≥306 | **فقط ویندوز**: Win32 API |
-| `dbus-python` | ≥1.3 | **فقط لینوکس**: DBus به KWin (Wayland + X11) |
-| `regex` | ≥2024.x | regex پیشرفته (اختیاری) |
+| `PySide6` | ≥6.6 | Qt UI, tray, QWebEngineView |
+| `fastapi` | ≥0.110 | Backend API |
+| `uvicorn` | ≥0.27 | ASGI server for FastAPI |
+| `sqlmodel` | ≥0.0.16 | ORM (on SQLAlchemy) |
+| `pydantic` | ≥2.6 | Config and API validation |
+| `psutil` | ≥5.9 | Process name (cross-platform) |
+| `Pillow` | ≥10 | Screenshot compression |
+| `mss` | ≥9 | Cross-platform screenshots |
+| `python-xlib` | ≥0.33 | **Linux/X11 only**: window detection |
+| `pywin32` | ≥306 | **Windows only**: Win32 API |
+| `dbus-python` | ≥1.3 | **Linux only**: DBus to KWin (Wayland + X11) |
+| `regex` | ≥2024.x | Advanced regex (optional) |
 
 ### Node.js / Angular
-- Node.js ≥ 20 LTS، Angular CLI ≥ 18.
-- `ngx-echarts`، `echarts`، `date-fns`، `tailwindcss` (اختیاری).
+- Node.js ≥ 20 LTS, Angular CLI ≥ 18.
+- `ngx-echarts`, `echarts`, `asa-date-picker`, `tailwindcss`.
 
-### ابزارهای توسعه
-- `pytest`، `pytest-asyncio` برای تست.
-- `ruff` برای lint، `black` برای format، `mypy` برای type-check.
-- `pyinstaller` یا `nuitka` برای بسته‌بندی executable.
-
----
-
-## ۱۱. خط‌کشی (Scoping)
-
-### در اسکوپ v1
-- تمام الزامات FR-1 تا FR-8 روی ویندوز + لینوکس X11.
-- پشتیبانی **کامل** از Wayland روی KDE Plasma 6 (با KWin DBus).
-- داشبورد Angular با چهار صفحه‌ی overview/categories/screenshots/settings.
-- بسته‌بندی executable برای ویندوز و لینوکس.
-
-### خارج از اسکوپ v1 (نسخه‌های بعدی)
-- همگام‌سازی بین چند دستگاه (نیازمند بک‌اند مرکزی/Postgres).
-- تاری (blur) هوشمند مناطق حساس در اسکرین‌شات.
-- پشتیبانی از macOS.
-- تشخیص idle پیشرفته بر اساس ورودی کیبورد/ماوس.
-- یادگیری دسته‌بندی خودکار با ML.
-- اعلان‌ها و گزارش‌های هفتگی.
+### Dev Tools
+- `pytest`, `pytest-asyncio` for testing.
+- `ruff` for linting, `black` for formatting, `mypy` for type-checking.
+- `pyinstaller` or `nuitka` for executable packaging.
 
 ---
 
-## ۱۲. ریسک‌ها و کاهش آن‌ها
+## 11. Scoping
 
-| ریسک | احتمال | اثر | راه کاهش |
+### In Scope v1
+- All requirements FR-1 through FR-8 on Windows + Linux X11.
+- **Full** Wayland support on KDE Plasma 6 (with KWin DBus).
+- Angular dashboard with four pages: overview/categories/screenshots/settings.
+- Executable packaging for Windows and Linux.
+
+### Out of Scope v1 (Future Versions)
+- Multi-device sync (requires central backend/Postgres).
+- Smart blur of sensitive areas in screenshots.
+- macOS support.
+- Advanced idle detection based on keyboard/mouse input.
+- ML-based automatic categorization.
+- Weekly reports and notifications.
+
+---
+
+## 12. Risks and Mitigations
+
+| Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
-| Wayland اجازه‌ی capture per-window نمی‌دهد | پایین (KDE) | متوسط | KWin `screenshotArea` با هندسه‌ی `activeWindow.geometry` بدون تأیید کاربر؛ fallback به `screenshotFullScreen` + برش |
-| QWebEngineView باعث افزایش حجم بسته می‌شود | قطعی | کم | پذیرفته‌شده (embed Chromium)؛ در README ذکر شود |
-| حجم اسکرین‌شات‌ها سریع رشد می‌کند | متوسط | متوسط | retention خودکار + کیفیت پایین پیش‌فرض + نمایش تخمین حجم در داشبورد |
-| رکورد باز (open-ended) هنگام crash باقی می‌ماند | متوسط | متوسط | هنگام startup، بستن خودکار رکوردهای `end_ts IS NULL` با زمان تخمینی |
-| regex کاربر نامعتبر است | متوسط | متوسط | validation هنگام ذخیره‌ی rule + fallback به Uncategorized + نمایش خطا |
-| تداخل ویرایش دستی `config.toml` با DB | کم | متوسط | rules تنها در اولین اجرا seed می‌شوند؛ flag `--reseed-rules` برای بازنویسی |
+| Wayland doesn't allow per-window capture | Low (KDE) | Medium | KWin `screenshotArea` with `activeWindow.geometry` without user prompt; fallback to `screenshotFullScreen` + crop |
+| QWebEngineView inflates package size | Certain | Low | Accepted (embed Chromium); documented in README |
+| Screenshot volume grows quickly | Medium | Medium | Auto retention + low quality default + size estimate display in dashboard |
+| Open-ended record persists after crash | Medium | Medium | On startup, auto-close records with `end_ts IS NULL` using estimated time |
+| User regex is invalid | Medium | Medium | Validation on rule save + fallback to Uncategorized + error display |
+| Manual `config.toml` edits conflict with DB | Low | Medium | Rules are only seeded on first run; `--reseed-rules` flag for forced rewrite |
 
 ---
 
-## ۱۳. واژه‌نامه (Glossary)
+## 13. Glossary
 
-- **Activity (فعالیت):** یک رکورد در جدول `activities`؛ بازه‌ی زمانی که کاربر روی یک پنجره‌ی خاص کار کرده است.
-- **Sample vs Activity:** در این طراحی **sample نقطه‌ای نداریم**؛ داده‌ها به‌صورت activity (بازه) ذخیره می‌شوند.
-- **Category (دسته):** برچسب دسته‌بندی نهایی یک activity (مثلاً «کدنویسی»).
-- **Rule (قاعده):** یک الگوی regex برای تطبیق `process` و/یا `title`.
-- **Rule version:** نسخه‌ی rules هنگام دسته‌بندی یک activity؛ برای شناسایی activityهایی که نیاز به باز‌دسته‌بندی دارند.
-- **Recompute:** باز‌دسته‌بندی خودکار activityها پس از تغییر rules.
-- **Retention:** مدت نگهداری اسکرین‌شات‌ها پیش از حذف خودکار.
-- **Idle:** فعالیت با `process = NULL` زمانی که پنجره‌ی فعالی وجود ندارد.
-- **Tray:** آیکون اپ در نوار سیستم (system tray / notification area).
-- **EWMH:** Extended Window Manager Hints، استاندارد دسترسی به اطلاعات پنجره در X11.
-- **WAL:** Write-Ahead Logging، مُد همزمانی SQLite.
-- **QWebEngineView:** ویجت Qt برای embed کردن Chromium و نمایش وب.
-- **ECharts:** کتابخانه‌ی نمودار JavaScript (Apache).
-- **Pie / Donut / Stacked Bar:** انواع نمودار برای نمایش سهم و توزیع دسته‌ها.
+- **Activity:** A record in the `activities` table; the time window a user worked in a specific window.
+- **Sample vs Activity:** In this design there are **no point samples**; data is stored as activities (time ranges).
+- **Category:** The final classification label of an activity (e.g. "Coding").
+- **Rule:** A regex pattern for matching `process` and/or `title`.
+- **Rule version:** The version of rules at the time an activity was categorized; used to identify activities needing recompute.
+- **Recompute:** Automatic re-categorization of activities after rule changes.
+- **Retention:** How long screenshots are kept before automatic deletion.
+- **Idle:** An activity with `process = NULL` when no active window exists.
+- **Tray:** The app icon in the system tray / notification area.
+- **EWMH:** Extended Window Manager Hints, standard for accessing window info on X11.
+- **WAL:** Write-Ahead Logging, SQLite concurrency mode.
+- **QWebEngineView:** Qt widget for embedding Chromium and displaying web content.
+- **ECharts:** JavaScript charting library (Apache).
+- **Pie / Donut / Stacked Bar:** Chart types for showing share and distribution of categories.

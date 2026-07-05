@@ -1,67 +1,67 @@
 # Time Tracker
 
-تایم‌ترکر دسکتاپی کراس‌پلتفرم (ویندوز + لینوکس KDE) که فعالیت کاربر را به‌صورت event-based ضبط و دسته‌بندی می‌کند. تمام داده‌ها **کاملاً محلی** ذخیره می‌شوند (SQLite) و هیچ داده‌ای به شبکه ارسال نمی‌شود.
+A cross-platform desktop time tracker (Windows + Linux KDE) that records and categorizes user activity using an event-based approach. All data is stored **entirely locally** (SQLite) — no data is ever sent over the network.
 
-## ویژگی‌ها
+## Features
 
-### ضبط هوشمند فعالیت
-- **event-based:** فقط هنگام تعویض پنجره‌ی فعال رکورد ثبت می‌شود (نه polling ثابت) — سبک، دقیق، کم‌حجم
-- **تشخیص خودکار Idle:** وقتی پنجره‌ای فوکوس نیست یا سیستم قفل است، فعالیت با دسته‌ی `Idle` ثبت می‌شود
-- **ذخیره‌سازی پروسس + عنوان:** هر رکورد شامل نام پروسس، عنوان پنجره، و زمان شروع/پایان است
+### Smart Activity Tracking
+- **Event-based:** records are only created when the active window changes (not constant polling) — lightweight, accurate, low data volume
+- **Auto Idle detection:** when no window is focused or the system is locked, activity is logged as `Idle`
+- **Process + title storage:** each record includes process name, window title, and start/end timestamps
 
-### دسته‌بندی با Regex
-- **کتگوری‌ها:** ساختار درختی با نام، رنگ، اولویت و وضعیت فعال/غیرفعال
-- **قواعد (Rules):** regex روی `process` و `title` — قابلیت AND بین دو فیلد، OR بین ruleهای یک کتگوری
-- **الویت‌بندی:** اولین کتگوری مچ‌شده برنده است (قابل تنظیم)
-- **باز‌دسته‌بندی خودکار:** با تغییر rules یا priority، نسخه‌ی rules افزایش یافته و بک‌گراند چانکی کل تاریخچه را باز‌دسته‌بندی می‌کند
-- **Uncategorized:** فعالیت‌هایی که با هیچ ruleای مچ نشوند در این دسته قرار می‌گیرند
+### Regex-Based Categorization
+- **Categories:** tree structure with name, color, priority, and enabled/disabled status
+- **Rules:** regex patterns on `process` and `title` — AND logic within a rule, OR across rules in the same category
+- **Priority-based matching:** the first matching category (by priority) wins
+- **Auto recompute:** changing rules increments the rule version; a background worker chunk-by-chunk re-categorizes the entire history
+- **Uncategorized:** activities matching no rule fall into `Uncategorized`
 
-### اسکرین‌شات دوره‌ای
-- **فواصل قابل تنظیم:** ۱ تا ۳۰۰ ثانیه (پیش‌فرض ۱۰ ثانیه)
-- **سه سطح کیفیت:** Low (۳۰٪ JPEG) / Medium (۶۰٪) / High (۹۰٪) — هرکدام با رزولوشن متناسب
-- **مدیریت ذخیره‌سازی:** حذف خودکار اسکرین‌شات‌های قدیمی (retention بین ۱ تا ۹۰ روز)
-- **تشخیص خودکار Spectacle (KDE):** هنگام استفاده از ابزار اسکرین‌شات KDE، عکس‌برداری متوقف می‌شود
-- **پیش‌نمایش:** گالری اسکرین‌شات‌ها در داشبورد با قابلیت بزرگنمایی
+### Periodic Screenshots
+- **Configurable interval:** 1–300 seconds (default: 10s)
+- **Three quality levels:** Low (30% JPEG) / Medium (60%) / High (90%) — each with appropriate resolution
+- **Retention management:** auto-delete old screenshots (1–90 days)
+- **Spectacle detection (KDE):** screenshot capture pauses while the user is using KDE's Spectacle tool
+- **Preview:** screenshot gallery in the dashboard with full-size lightbox
 
-### داشبورد یکپارچه (Angular)
-- **Overview:** جدول فعالیت‌ها با فیلتر (پروسس، کتگوری، عنوان، بازه‌ی زمانی) + breakdown زمانی بر اساس کتگوری + صفحه‌بندی
-- **Charts:** نمودارهای Pie/Donut با تفکیک کتگوری/پروسس/عنوان — بازه‌های Today / This Week / This Month / Custom
-- **Timeline:** نمایش بصری گانت‌مانند با ۴ ردیف (پروسس، عنوان، کتگوری، Job) — قابلیت zoom با اسکرول، drag، انتخاب بازه، نشانگر (marker) با جزئیات و اسکرین‌شات
-- **Screenshots:** گالری اسکرین‌شات‌ها با فیلتر بازه و پیش‌نمایش full-size
-- **Categories:** مدیریت کامل کتگوری‌ها و rules (افزودن/ویرایش/حذف) + recompute
+### Integrated Dashboard (Angular)
+- **Overview:** activity table with filters (process, category, title, date range) + category time breakdown + pagination
+- **Charts:** Pie/Donut charts by category/process/title — preset ranges: Today / This Week / This Month / Custom
+- **Timeline:** Gantt-like visual display with 4 rows (process, title, category, job) — scroll-to-zoom, drag-to-pan, range selection, marker with details and screenshot
+- **Screenshots:** gallery with date range filter and full-size preview
+- **Categories:** full CRUD for categories and rules + recompute on rule change
 
-### تقویم هجری شمسی
-- **Date picker دوگانه:** پشتیبانی هم‌زمان از تقویم میلادی (Gregorian) و هجری شمسی (Jalali)
-- **تنظیم در Settings:** کاربر نوع تقویم را انتخاب می‌کند و تمام date pickerهای برنامه از آن پیروی می‌کنند
-- **معادل میلادی:** هنگام استفاده از تقویم شمسی، معادل میلادی زیر هر date picker نمایش داده می‌شود
-- **بدون تغییر بک‌اند:** تمام تاریخ‌ها در API و دیتابیس میلادی باقی می‌مانند
+### Dual Calendar Support
+- **Dual date picker:** supports both Gregorian and Jalali (Persian Solar Hijri) calendars
+- **Settings toggle:** user selects calendar type in Settings; all date pickers follow the selection
+- **Gregorian equivalent:** when Jalali is active, the Gregorian equivalent is shown below each date picker
+- **No backend changes needed:** all dates in the API and database remain Gregorian
 
 ### Job Tracking
-- **Manual Job:** قابلیت اختصاص job دستی از طریق system tray یا داشبورد — همه فعالیت‌های بعدی با آن job تگ می‌شوند
-- **Inline Editing:** ویرایش job هر فعالیت مستقیماً از ستون Overview
-- **Range Assignment:** اختصاص job به یک بازه‌ی زمانی در Timeline (با drag-select)
-- **Autocomplete:** پیشنهاد خودکار jobهای قبلی هنگام تایپ
+- **Manual Job:** assign a job via the system tray or dashboard — all subsequent activities are tagged with that job
+- **Inline Editing:** edit an activity's job directly in the Overview table
+- **Range Assignment:** assign a job to a time range in the Timeline (drag-select)
+- **Autocomplete:** previous job suggestions while typing
 
 ### System Tray
-- **آیکون ساعت:** نمایش وضعیت tracking (فعال/متوقف) با tooltip
-- **منوی راست‌کلیک:** باز کردن داشبورد، توقف/ادامه tracking، تنظیم job دستی، خروج
-- **دابل‌کلیک:** باز کردن سریع داشبورد در مرورگر
+- **Clock icon:** shows tracking status (active/paused) with tooltip
+- **Context menu:** open dashboard, pause/resume tracking, set manual job, quit
+- **Double-click:** quick launch dashboard in browser
 
-### حریم خصوصی
-- **تمام داده‌ها محلی:** SQLite روی دیسک کاربر، بدون هیچ ارتباط شبکه‌ای (جز `localhost:8080` برای داشبورد)
-- **لیست استثنا:** امکان حذف اپ‌های حساس از اسکرین‌شات (از طریق config)
-- **بدون telemetry:** هیچ داده‌ای جمع‌آوری یا ارسال نمی‌شود
+### Privacy
+- **All data is local:** SQLite on the user's disk, no network communication (except `localhost:8080` for the dashboard)
+- **Exclusion list:** sensitive apps can be excluded from screenshots (via config)
+- **No telemetry:** no data is collected or transmitted
 
-### کراس‌پلتفرم
-| پلتفرم | روش تشخیص پنجره | اسکرین‌شات |
+### Cross-Platform
+| Platform | Window Detection | Screenshot |
 |---|---|---|
 | Windows 10/11 | Win32 API (ctypes) | mss / BitBlt |
 | Linux X11 | python-xlib | mss |
 | Linux Wayland (KDE) | DBus → KWin | spectacle --background |
 
-## استک فنی
+## Tech Stack
 
-| لایه | تکنولوژی |
+| Layer | Technology |
 |---|---|
 | Backend | Python 3.11+ / PySide6 / FastAPI / SQLModel (SQLite WAL) |
 | Dashboard | Angular 19 / ECharts / TailwindCSS |
@@ -69,30 +69,30 @@
 | Screenshots | mss / Pillow / spectacle / grim |
 | Date Picker | asa-date-picker (Gregorian + Jalali) |
 
-## ساختار پروژه
+## Project Structure
 
 ```
 ├── src/timetracker/
-│   ├── __main__.py           # نقطه‌ی ورود
-│   ├── config.py             # بارگذاری/ذخیره‌ی کانفیگ TOML
-│   ├── platform/             # لایه‌ی انتزاع پلتفرم
-│   │   ├── base.py           # اینترفیس WindowInfo
-│   │   ├── factory.py        # انتخاب بک‌اند مناسب
+│   ├── __main__.py           # Entry point
+│   ├── config.py             # TOML config loading/saving
+│   ├── platform/             # Platform abstraction layer
+│   │   ├── base.py           # WindowInfo interface
+│   │   ├── factory.py        # Auto-select backend
 │   │   ├── linux_x11.py      # X11 via python-xlib
 │   │   ├── linux_wayland.py  # Wayland KDE via DBus
 │   │   └── windows.py        # Win32 API via ctypes
-│   ├── db/                   # مدل‌ها، session، migrations
-│   ├── tracking/             # sampler + categorizer + recompute
-│   ├── screenshots/          # capture + retention
+│   ├── db/                   # Models, session, migrations
+│   ├── tracking/             # Sampler + categorizer + recompute
+│   ├── screenshots/          # Capture + retention
 │   ├── api/                  # FastAPI routes
-│   └── ui/                   # system tray + dashboard window
-├── dashboard/                # پروژه‌ی Angular
-├── tests/                    # تست‌های Python
-├── docs/                     # مستندات (SPEC, PLAN)
-└── scripts/                  # اسکریپت‌های کمکی
+│   └── ui/                   # System tray + dashboard window
+├── dashboard/                # Angular project
+├── tests/                    # Python tests
+├── docs/                     # Documentation (SPEC, PLAN)
+└── scripts/                  # Helper scripts
 ```
 
-## شروع کار (از سورس)
+## Getting Started (from source)
 
 ```bash
 # Clone
@@ -104,10 +104,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Platform-specific dependency (فقط یکی)
-pip install -e ".[x11]"        # لینوکس X11
-pip install -e ".[wayland]"    # لینوکس KDE Wayland
-pip install -e ".[win32]"      # ویندوز
+# Platform-specific dependency (install only one)
+pip install -e ".[x11]"        # Linux X11
+pip install -e ".[wayland]"    # Linux KDE Wayland
+pip install -e ".[win32]"      # Windows
 
 # Angular dashboard
 cd dashboard
@@ -115,21 +115,21 @@ npm install
 npm run build
 cd ..
 
-# اجرا
+# Run
 python -m timetracker
 ```
 
-داشبورد روی `http://127.0.0.1:8080` قابل دسترسی است و در مرورگر پیش‌فرض باز می‌شود. همچنین روی System tray دابل‌کلیک کنید.
+The dashboard is available at `http://127.0.0.1:8080` and opens in the default browser. Double-click the system tray icon to reopen it.
 
-## بیلد اجرایی (Linux)
+## Building a Linux Executable
 
-پیش‌نیاز: `pyinstaller` در dev dependencies هست، یا دستی نصب کنید:
+Prerequisite: `pyinstaller` is included in dev dependencies, or install manually:
 
 ```bash
 pip install pyinstaller
 ```
 
-### مرحله‌ی ۱: بیلد داشبورد Angular
+### Step 1: Build Angular dashboard
 
 ```bash
 cd dashboard
@@ -138,7 +138,7 @@ npm run build
 cd ..
 ```
 
-### مرحله‌ی ۲: بیلد با PyInstaller
+### Step 2: Build with PyInstaller
 
 ```bash
 pyinstaller \
@@ -190,10 +190,10 @@ pyinstaller \
   src/timetracker/__main__.py
 ```
 
-خروجی در `dist/time-tracker/time-tracker` ایجاد می‌شود.
+The output is at `dist/time-tracker/time-tracker`.
 
-> **نکته:** فایل‌های باینری PySide6 بزرگ هستند (~۱۵۰ مگابایت). برای توزیع نهایی، می‌توان `--onedir` را با ابزاری مثل AppImage ترکیب کرد.
+> **Note:** PySide6 binaries are large (~150 MB). For final distribution, combine `--onedir` with an AppImage tool.
 
-## لایسنس
+## License
 
 MIT
