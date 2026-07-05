@@ -235,17 +235,19 @@ def stats_accumulated(
     filter_category: str | None = None,
     filter_process:  str | None = None,
     filter_title:    str | None = None,
+    filter_job:      str | None = None,
 ) -> list[dict[str, Any]]:
     """Return accumulated duration grouped by the requested field within the time window."""
-    allowed = {"category", "process", "title"}
+    allowed = {"category", "process", "title", "job"}
     if group_by not in allowed:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=f"group_by must be one of {allowed}")
 
-    col_map = {
+    col_map: dict[str, Any] = {
         "category": Activity.category,
         "process":  Activity.process,
         "title":    Activity.title,
+        "job":      Activity.job,
     }
     col = col_map[group_by]
 
@@ -266,6 +268,8 @@ def stats_accumulated(
             stmt = stmt.where(Activity.process.ilike(f"%{filter_process}%"))    # type: ignore[union-attr]
         if filter_title:
             stmt = stmt.where(Activity.title.ilike(f"%{filter_title}%"))        # type: ignore[union-attr]
+        if filter_job:
+            stmt = stmt.where(Activity.job.ilike(f"%{filter_job}%"))            # type: ignore[union-attr]
         stmt = stmt.group_by(col).order_by(func.sum(Activity.duration_sec).desc()).limit(top_n)
 
         rows = session.exec(stmt).all()

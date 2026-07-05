@@ -5,6 +5,7 @@ import { TimelineComponent } from './pages/timeline/timeline.component';
 import { CategoriesComponent } from './pages/categories/categories.component';
 import { ScreenshotsComponent } from './pages/screenshots/screenshots.component';
 import { SettingsComponent } from './pages/settings/settings.component';
+import { AboutComponent } from './pages/about/about.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/overview', pathMatch: 'full' },
@@ -14,4 +15,5 @@ export const routes: Routes = [
   { path: 'categories', component: CategoriesComponent },
   { path: 'screenshots', component: ScreenshotsComponent },
   { path: 'settings',   component: SettingsComponent },
+  { path: 'about',      component: AboutComponent },
 ];

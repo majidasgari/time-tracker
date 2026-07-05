@@ -117,13 +117,14 @@ export class ApiService {
   }
 
   getAccumulated(
-    groupBy: 'category' | 'process' | 'title',
+    groupBy: 'category' | 'process' | 'title' | 'job',
     fromTs?: string,
     toTs?: string,
     topN = 20,
     filterCategory?: string,
     filterProcess?: string,
     filterTitle?: string,
+    filterJob?: string,
   ) {
     const params: Record<string, string> = { group_by: groupBy, top_n: String(topN) };
     if (fromTs)          params['from_ts']         = fromTs;
@@ -131,6 +132,7 @@ export class ApiService {
     if (filterCategory)  params['filter_category'] = filterCategory;
     if (filterProcess)   params['filter_process']  = filterProcess;
     if (filterTitle)     params['filter_title']    = filterTitle;
+    if (filterJob)       params['filter_job']      = filterJob;
     return this.http.get<AccumulatedItem[]>(`${this.base}/stats/accumulated`, { params });
   }
 

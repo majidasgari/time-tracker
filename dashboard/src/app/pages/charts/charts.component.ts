@@ -126,20 +126,23 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
         </div>
 
         <!-- Text filters -->
-        <div class="w-full grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
-          <input id="chart-filter-category" type="text" placeholder="Filter category…"
+        <div class="w-full grid grid-cols-1 sm:grid-cols-4 gap-2 mt-1">
+          <input type="text" placeholder="Filter category…"
             [(ngModel)]="filterCategory" (ngModelChange)="onTextFilter()"
             class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
-          <input id="chart-filter-process" type="text" placeholder="Filter process…"
+          <input type="text" placeholder="Filter process…"
             [(ngModel)]="filterProcess" (ngModelChange)="onTextFilter()"
             class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
-          <input id="chart-filter-title" type="text" placeholder="Filter window title…"
+          <input type="text" placeholder="Filter title…"
             [(ngModel)]="filterTitle" (ngModelChange)="onTextFilter()"
+            class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
+          <input type="text" placeholder="Filter job…"
+            [(ngModel)]="filterJob" (ngModelChange)="onTextFilter()"
             class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm placeholder-gray-500 focus:outline-none focus:border-indigo-500"/>
         </div>
 
         <!-- Active filters -->
-        <div *ngIf="filterCategory || filterProcess || filterTitle" class="w-full flex flex-wrap items-center gap-2">
+        <div *ngIf="filterCategory || filterProcess || filterTitle || filterJob" class="w-full flex flex-wrap items-center gap-2">
           <span class="text-xs text-indigo-300">Active filters:</span>
           <span *ngIf="filterCategory" class="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 flex items-center gap-1">
             category: {{ filterCategory }}
@@ -153,7 +156,11 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
             title: {{ filterTitle }}
             <button (click)="filterTitle = ''; onTextFilter()" class="text-gray-500 hover:text-white">&times;</button>
           </span>
-          <button (click)="filterCategory = ''; filterProcess = ''; filterTitle = ''; onTextFilter()"
+          <span *ngIf="filterJob" class="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300 flex items-center gap-1">
+            job: {{ filterJob }}
+            <button (click)="filterJob = ''; onTextFilter()" class="text-gray-500 hover:text-white">&times;</button>
+          </span>
+          <button (click)="filterCategory = ''; filterProcess = ''; filterTitle = ''; filterJob = ''; onTextFilter()"
             class="text-xs text-gray-500 hover:text-gray-300 underline">Clear all</button>
         </div>
 
@@ -163,14 +170,12 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
         </div>
       </div>
       <!-- Charts grid -->
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4" *ngIf="!loading; else spinnerTpl">
-
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" *ngIf="!loading; else spinnerTpl">
 
         <!-- By Category -->
         <div class="bg-gray-800 rounded-xl p-5">
           <h2 class="text-base font-semibold mb-3 text-indigo-300">By Category</h2>
           <div *ngIf="catData.length" echarts [options]="catOption" (chartClick)="onCatClick($event)" class="h-64 w-full"></div>
-          <!-- Table -->
           <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
             <div *ngFor="let d of catData; let i = index"
               class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/30 rounded px-1 py-0.5 transition-colors"
@@ -203,7 +208,7 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
 
         <!-- By Title -->
         <div class="bg-gray-800 rounded-xl p-5">
-          <h2 class="text-base font-semibold mb-3 text-amber-300">By Title (top 20)</h2>
+          <h2 class="text-base font-semibold mb-3 text-amber-300">By Title</h2>
           <div *ngIf="titleData.length" echarts [options]="titleOption" (chartClick)="onTitleClick($event)" class="h-64 w-full"></div>
           <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
             <div *ngFor="let d of titleData; let i = index"
@@ -215,6 +220,22 @@ function makePieOption(title: string, data: AccumulatedItem[], colorMap?: Record
               <span class="text-gray-500 w-10 text-right">{{ pct(d.total_sec, titleData) }}%</span>
               <button (click)="$event.stopPropagation(); openCategorize('title', d.label)"
                 class="text-gray-600 hover:text-indigo-400 text-xs px-1" title="Add to category">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- By Job -->
+        <div class="bg-gray-800 rounded-xl p-5">
+          <h2 class="text-base font-semibold mb-3 text-yellow-300">By Job</h2>
+          <div *ngIf="jobData.length" echarts [options]="jobOption" (chartClick)="onJobClick($event)" class="h-64 w-full"></div>
+          <div class="mt-3 space-y-1 text-sm max-h-48 overflow-y-auto">
+            <div *ngFor="let d of jobData; let i = index"
+              class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/30 rounded px-1 py-0.5 transition-colors"
+              (click)="filterJob = d.label; onTextFilter()">
+              <span class="w-3 h-3 rounded-full flex-shrink-0" [style.background]="color(i)"></span>
+              <span class="flex-1 truncate text-gray-300" [title]="d.label">{{ d.label }}</span>
+              <span class="font-mono text-gray-400">{{ fmt(d.total_sec) }}</span>
+              <span class="text-gray-500 w-10 text-right">{{ pct(d.total_sec, jobData) }}%</span>
             </div>
           </div>
         </div>
@@ -276,10 +297,12 @@ export class ChartsComponent implements OnInit, OnDestroy {
   catData:   AccumulatedItem[] = [];
   procData:  AccumulatedItem[] = [];
   titleData: AccumulatedItem[] = [];
+  jobData:   AccumulatedItem[] = [];
 
   catOption:   any = {};
   procOption:  any = {};
   titleOption: any = {};
+  jobOption:   any = {};
 
   categoryColors: Record<string, string> = {};
 
@@ -295,10 +318,11 @@ export class ChartsComponent implements OnInit, OnDestroy {
   filterCategory = '';
   filterProcess  = '';
   filterTitle    = '';
+  filterJob      = '';
 
   get totalSec() {
     const sum = (arr: AccumulatedItem[]) => arr.reduce((a, b) => a + b.total_sec, 0);
-    return Math.max(sum(this.catData), sum(this.procData), sum(this.titleData));
+    return Math.max(sum(this.catData), sum(this.procData), sum(this.titleData), sum(this.jobData));
   }
 
   private destroy  = new Subject<void>();
@@ -370,6 +394,10 @@ export class ChartsComponent implements OnInit, OnDestroy {
     if (e.name) { this.filterTitle = e.name; this.onTextFilter(); }
   }
 
+  onJobClick(e: any) {
+    if (e.name) { this.filterJob = e.name; this.onTextFilter(); }
+  }
+
   onTextFilter() { this.filter$.next(); }
 
   selectPreset(p: Preset) {
@@ -394,20 +422,24 @@ export class ChartsComponent implements OnInit, OnDestroy {
     const fc = this.filterCategory || undefined;
     const fp = this.filterProcess  || undefined;
     const ft = this.filterTitle    || undefined;
+    const fj = this.filterJob      || undefined;
 
     this.loading = true;
     forkJoin({
-      cat:   this.api.getAccumulated('category', fromIso, toIso, 20, fc, fp, ft),
-      proc:  this.api.getAccumulated('process',  fromIso, toIso, 20, fc, fp, ft),
-      title: this.api.getAccumulated('title',    fromIso, toIso, 20, fc, fp, ft),
+      cat:   this.api.getAccumulated('category', fromIso, toIso, 20, fc, fp, ft, fj),
+      proc:  this.api.getAccumulated('process',  fromIso, toIso, 20, fc, fp, ft, fj),
+      title: this.api.getAccumulated('title',    fromIso, toIso, 20, fc, fp, ft, fj),
+      job:   this.api.getAccumulated('job',      fromIso, toIso, 20, fc, fp, ft, fj),
     }).pipe(takeUntil(this.destroy)).subscribe({
-      next: ({ cat, proc, title }) => {
+      next: ({ cat, proc, title, job }) => {
         this.catData   = cat;
         this.procData  = proc;
         this.titleData = title;
+        this.jobData   = job;
         this.catOption   = makePieOption('Category', cat, this.categoryColors);
         this.procOption  = makePieOption('Process',  proc);
         this.titleOption = makePieOption('Title',    title);
+        this.jobOption   = makePieOption('Job',      job);
         this.loading = false;
       },
       error: () => { this.loading = false; },

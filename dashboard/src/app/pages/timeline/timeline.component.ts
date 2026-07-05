@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, CategoryOut, TimelineActivity, JobOut, ScreenshotInfo } from '../../services/api.service';
@@ -61,11 +61,13 @@ const ROW_KEYS: Array<keyof Pick<TimelineActivity, 'process' | 'title' | 'catego
 
       <!-- Range bar -->
       <div class="bg-gray-800 rounded-xl px-4 py-2 flex items-center gap-3 text-xs">
-        <span class="text-gray-400">Range</span>
-        <span class="text-gray-500">Drag on time ruler to select</span>
+        <span class="text-gray-400">Viewing</span>
+        <span class="text-gray-300 font-mono" *ngIf="viewLabel">{{ viewLabel }}</span>
+        <span class="text-gray-600">|</span>
+        <span class="text-gray-500">Click to mark &middot; Drag to select range &middot; Arrow keys to move marker</span>
         <span *ngIf="rangeCount > 0" class="text-gray-400 font-mono">{{ rangeCount }} activities in range</span>
         <button (click)="applyJobToRange()" [disabled]="rangeCount === 0"
-          class="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
           [class.bg-yellow-600]="rangeCount > 0"
           [class.hover:bg-yellow-500]="rangeCount > 0"
           [class.bg-gray-700]="rangeCount === 0"
@@ -79,6 +81,10 @@ const ROW_KEYS: Array<keyof Pick<TimelineActivity, 'process' | 'title' | 'catego
           class="px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs transition-colors"
           [class.opacity-30]="rangeCount === 0">
           Clear
+        </button>
+        <button (click)="jumpToNow()"
+          class="ml-auto px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">
+          Now
         </button>
       </div>
 
@@ -254,6 +260,7 @@ export class TimelineComponent implements OnInit, OnDestroy, AfterViewInit {
 
   dragging = false;
   private _rulerDrag = false;
+  private _rulerDragStartX = 0;
   private dragStartX = 0;
   private dragStartViewStart = 0;
   private dragStartViewEnd = 0;
@@ -261,6 +268,55 @@ export class TimelineComponent implements OnInit, OnDestroy, AfterViewInit {
   private _mouseLastX = 0; private _mouseLastY = 0;
   private resizeObs: ResizeObserver | null = null;
   private destroy = new Subject<void>();
+
+  get viewLabel(): string {
+    if (!this.viewStartMs || !this.viewEndMs) return '';
+    const s = new Date(this.viewStartMs);
+    const e = new Date(this.viewEndMs);
+    const fmt = (d: Date) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    return `${fmt(s)}  —  ${fmt(e)}`;
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(e: KeyboardEvent) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
+    const step = 60_000;
+    e.preventDefault();
+
+    if (this.markerMs == null) {
+      this.markerMs = (this.viewStartMs + this.viewEndMs) / 2;
+    }
+
+    if (e.key === 'ArrowLeft') {
+      this.markerMs -= step;
+    } else {
+      this.markerMs += step;
+    }
+
+    this._computeMarkerDetail(this.markerMs);
+    this.render();
+  }
+
+  jumpToNow() {
+    const nowMs = Date.now();
+    const winMs = this.viewEndMs - this.viewStartMs;
+    this.viewStartMs = nowMs - winMs / 2;
+    this.viewEndMs = nowMs + winMs / 2;
+    this._syncInputsFromView();
+    this.fetchAndRender();
+  }
+
+  private _syncInputsFromView() {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    this.fromInput = fmt(new Date(this.viewStartMs));
+    this.toInput = fmt(new Date(this.viewEndMs));
+    this.currentPreset = 0;  // custom
+  }
 
   constructor(private api: ApiService) {}
 
@@ -518,12 +574,13 @@ export class TimelineComponent implements OnInit, OnDestroy, AfterViewInit {
     const my = e.clientY - rect.top;
 
     if (my < HEADER_H) {
-      // Range selection on time ruler
       this._rulerDrag = true;
+      this._rulerDragStartX = e.clientX;
       this.rangeStartMs = this.msFromX(e.clientX);
       this.rangeEndMs = null;
       this.rangeCount = 0;
       this.tooltip.visible = false;
+      this._mouseLastX = e.clientX; this._mouseLastY = e.clientY;
       this.render();
       return;
     }
@@ -542,6 +599,8 @@ export class TimelineComponent implements OnInit, OnDestroy, AfterViewInit {
     this._mouseLastX = e.clientX; this._mouseLastY = e.clientY;
     if (this._rulerDrag) {
       if (this.rangeStartMs != null) {
+        const dx = Math.abs(e.clientX - this._rulerDragStartX);
+        if (dx < 5) return;
         this.rangeEndMs = this.msFromX(e.clientX);
         this._computeRangeCount();
         this.render();
@@ -586,8 +645,8 @@ export class TimelineComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this._rulerDrag) {
       this._rulerDrag = false;
       if (this.rangeStartMs != null && this.rangeEndMs == null) {
-        // Single click on ruler: just place marker
-        this.placeMarker(this.msFromX(this._mouseLastX));
+        // Single click on ruler: place marker at click position
+        this.placeMarker(this._rulerDragStartX);
         this.rangeStartMs = null;
       } else if (this.rangeStartMs != null && this.rangeEndMs != null) {
         this._computeRangeCount();
